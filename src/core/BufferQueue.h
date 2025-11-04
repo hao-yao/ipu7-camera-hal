@@ -131,7 +131,6 @@ class BufferQueue : public BufferConsumer, public BufferProducer, public EventLi
    */
     void setThreadWaiting(bool waiting);
 
-    BufferProducer* mBufferProducer;
     std::vector<BufferConsumer*> mBufferConsumerList;
 
     std::map<uuid, stream_t> mInputFrameInfo;

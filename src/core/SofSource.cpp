@@ -17,6 +17,7 @@
 
 #include "SofSource.h"
 
+#include <fcntl.h>
 #include <poll.h>
 
 #include "PlatformData.h"
@@ -33,6 +34,22 @@ SofSource::SofSource(int cameraId)
           mExitPending(false) {
     LOG1("%s: SofSource is constructed", __func__);
 
+    mFlushFd[0] = -1;
+    mFlushFd[1] = -1;
+
+    int ret = pipe(mFlushFd);
+    if (ret >= 0) {
+        ret = fcntl(mFlushFd[0], F_SETFL, O_NONBLOCK);
+        if (ret < 0) {
+            LOG1("failed to set flush pipe flag: %s", strerror(errno));
+            close(mFlushFd[0]);
+            close(mFlushFd[1]);
+            mFlushFd[0] = -1;
+            mFlushFd[1] = -1;
+        }
+        LOG1("%s, mFlushFd [%d-%d]", __func__, mFlushFd[0], mFlushFd[1]);
+    }
+
     mSofDisabled = !PlatformData::isIsysEnabled(cameraId);
     // FILE_SOURCE_S
     mSofDisabled = mSofDisabled || PlatformData::isFileSourceEnabled();
@@ -41,6 +58,12 @@ SofSource::SofSource(int cameraId)
 
 SofSource::~SofSource() {
     LOG1("%s: SofSource is distructed.", __func__);
+    if (mFlushFd[0] != -1) {
+        close(mFlushFd[0]);
+    }
+    if (mFlushFd[1] != -1) {
+        close(mFlushFd[1]);
+    }
 }
 
 int SofSource::init() {
@@ -122,6 +145,13 @@ int SofSource::start() {
         return OK;
     }
 
+    if (mFlushFd[0] != -1) {
+        // read pipe just in case there is data in pipe.
+        char readBuf;
+        int readSize = read(mFlushFd[0], reinterpret_cast<void*>(&readBuf), sizeof(char));
+        LOG1("%s, readSize %d", __func__, readSize);
+    }
+
     mExitPending = false;
     mPollThread->start();
 
@@ -132,6 +162,12 @@ int SofSource::stop() {
     LOG1("%s", __func__);
     if (mSofDisabled) {
         return OK;
+    }
+
+    if (mFlushFd[1] != -1) {
+        char buf = 0xf;  // random value to write to flush fd.
+        const int size = write(mFlushFd[1], &buf, sizeof(char));
+        LOG1("%s, write size %d", __func__, size);
     }
 
     mPollThread->exit();
@@ -148,20 +184,19 @@ int SofSource::poll() {
 
     std::vector<V4L2Device*> pollDevs;
     pollDevs.push_back(mIsysReceiverSubDev);
-    V4L2DevicePoller poller{pollDevs, -1};
+    V4L2DevicePoller poller{pollDevs, mFlushFd[0]};
 
     std::vector<V4L2Device*> readyDevices;
 
     int timeOutCount = pollTimeoutCount;
 
     while (((timeOutCount--) != 0) && (ret == 0)) {
-        ret = poller.Poll(pollTimeout, POLLPRI | POLLIN | POLLOUT | POLLERR, &readyDevices);
-
-        if ((ret == 0) && mExitPending) {
-            // timed out
-            LOGI("Time out or thread is not running, ret = %d", ret);
-            return BAD_VALUE;
+        if (mExitPending) {
+            LOG2("%s: mExitPending is true, exit", __func__);
+            return -1;
         }
+
+        ret = poller.Poll(pollTimeout, POLLPRI | POLLIN | POLLOUT | POLLERR, &readyDevices);
     }
 
     if (mExitPending) {

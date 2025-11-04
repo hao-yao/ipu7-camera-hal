@@ -99,7 +99,7 @@ typedef struct DataRange
 static int distinctGraphsCount = 37;
 
 static GraphHashCode hashCodeLookup[] = {
-       {0, 0x327EB4A8},
+       {0, 0x4229ABEE},
        {100000, 0x829C70F3},
        {100001, 0x36553465},
        {100002, 0x868896D7},

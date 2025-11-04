@@ -28,8 +28,7 @@ BufferProducer::BufferProducer(int memType) : mMemType(memType) {
 }
 
 BufferQueue::BufferQueue()
-        : mBufferProducer(nullptr),
-          mThreadWaiting(true) {
+        : mThreadWaiting(true) {
     LOG1("@%s BufferQueue %p created", __func__, this);
 }
 
@@ -63,13 +62,7 @@ void BufferQueue::setBufferProducer(BufferProducer* producer) {
     LOG1("%s producer %p", __func__, producer);
 
     AutoMutex l(mBufferQueueLock);
-    mBufferProducer = producer;
-
-    if (producer == nullptr) {
-        return;
-    }
-
-    mBufferProducer->addFrameAvailableListener(this);
+    BufferConsumer::setBufferProducer(producer);
 }
 
 void BufferQueue::addFrameAvailableListener(BufferConsumer* listener) {

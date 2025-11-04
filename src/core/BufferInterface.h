@@ -24,18 +24,7 @@
  */
 namespace icamera {
 
-class BufferProducer;
-
-/**
- * BufferConsumer listens on the onBufferAvailable event from the producer by
- * calling setBufferProducer
- */
-class BufferConsumer {
- public:
-    virtual ~BufferConsumer() {}
-    virtual int onBufferAvailable(uuid port, const std::shared_ptr<CameraBuffer>& camBuffer) = 0;
-    virtual void setBufferProducer(BufferProducer* producer) = 0;
-};
+class BufferConsumer;
 
 /**
  * BufferProcuder get the buffers from consumer by "qbuf".
@@ -54,6 +43,26 @@ class BufferProducer : public EventSource {
 
  private:
     int mMemType;
+};
+
+/**
+ * BufferConsumer listens on the onBufferAvailable event from the producer by
+ * calling setBufferProducer
+ */
+class BufferConsumer {
+ public:
+    explicit BufferConsumer() : mBufferProducer(nullptr) {}
+    virtual ~BufferConsumer() {}
+    virtual int onBufferAvailable(uuid port, const std::shared_ptr<CameraBuffer>& camBuffer) = 0;
+    virtual void setBufferProducer(BufferProducer* producer) {
+        mBufferProducer = producer;
+        if (mBufferProducer != nullptr) {
+            mBufferProducer->addFrameAvailableListener(this);
+        }
+    }
+
+ protected:
+    BufferProducer* mBufferProducer;
 };
 
 }  // namespace icamera

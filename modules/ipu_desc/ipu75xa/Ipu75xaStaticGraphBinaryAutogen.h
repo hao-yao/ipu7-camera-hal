@@ -84,6 +84,7 @@ struct GraphConfigurationKey {
 };
 
 struct GraphConfigurationHeader {
+    uint32_t additonalFeaturesBit = 0;
     GraphConfigurationKey settingsKey;
     uint16_t settingId = 0;
     int32_t graphId = 0;

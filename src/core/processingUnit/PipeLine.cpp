@@ -572,8 +572,8 @@ std::vector<PipeStageUnit*> PipeLine::findStageConsumer(const PipeStageUnit& psU
 
 std::map<uuid, uuid> PipeLine::getConsumerPortMap(const PipeStageUnit* psUnitConsumer) {
     std::map<uuid, uuid> portMap;
-    std::vector<uuid> intputTerminals = psUnitConsumer->inputTerminals;
-    for (auto& sinkTerminal : intputTerminals) {
+    std::vector<uuid> inputTerminals = psUnitConsumer->inputTerminals;
+    for (auto& sinkTerminal : inputTerminals) {
         if (mSinkMapSource.find(sinkTerminal) == mSinkMapSource.end()) {
             continue;
         }

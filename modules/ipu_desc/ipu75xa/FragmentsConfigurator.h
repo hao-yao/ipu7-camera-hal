@@ -31,12 +31,12 @@
 class Ipu8FragmentsConfigurator
 {
 public:
-
-    static const int32_t VANISH_MIN = 16;
+    static const int32_t MIN_STRIPE_WIDTH_BEFORE_TNR = 128;
+    static const int32_t MIN_STRIPE_WIDTH_AFTER_TNR = 64;
     static const int32_t UPSCALER_MAX_OUTPUT_WIDTH = 4672;
     Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node, uint32_t upscalerWidthGranularity);
 
-    StaticGraphStatus configureFragments();
+    StaticGraphStatus configureFragments(std::vector<SmurfKernelInfo*>& smurfKernels);
 
 private:
     // Stripe Actions - each filter will perform one action according to its role
@@ -46,11 +46,15 @@ private:
     StaticGraphStatus configFragmentsOutput(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
     StaticGraphStatus configFragmentsTnrScaler(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
     StaticGraphStatus configFragmentsTnrFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, GraphResolutionConfiguratorKernelRole kernelRole);
+    StaticGraphStatus configFragmentsSmurf(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments,
+        std::vector<SmurfKernelInfo*>& smurfKernels);
+    StaticGraphStatus configFragmentsSmurfFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments);
 
-    void copyFragments(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* prevKernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* kernelFragments);
+    StaticGraphStatus copyFragments(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* prevKernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* kernelFragments);
     void vanishStripe(uint8_t stripe, uint32_t runKerenlUuid, StaticGraphFragmentDesc* kernelFragments, VanishOption vanishOption);
     uint32_t getPlaneStartAddress(uint32_t sumOfPrevWidths, FormatType formatType, uint8_t plane);
     uint16_t alignToFormatRestrictions(uint16_t size, FormatType bufferFormat);
+    bool validateDownscalerOutputWidth(StaticGraphFragmentDesc* stripe, uint16_t addition, int32_t stripeIndex, double scaleFactor, StaticGraphRunKernel* runKernel);
 
     OuterNode* _node = nullptr;
     IStaticGraphConfig* _staticGraph = nullptr;
@@ -61,5 +65,5 @@ private:
 
     // Save TNR resolutions for feeder configurations
     StaticGraphFragmentDesc* _tnrScalerFragments = nullptr;
-    uint32_t _tnrScalerUuid = 0;
+    StaticGraphRunKernel* _tnrScalerRunKernel = nullptr;
 };

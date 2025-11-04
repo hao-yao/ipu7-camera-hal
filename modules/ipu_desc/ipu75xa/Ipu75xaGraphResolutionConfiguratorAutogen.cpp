@@ -119,3 +119,8 @@ uint32_t GraphResolutionConfiguratorHelper::getRunKernelIoBufferSystemApiUuid()
     return 47358;
 }
 
+uint32_t GraphResolutionConfiguratorHelper::getRunKernelDownscalerSystemApiUuid()
+{
+    return 2102;
+}
+

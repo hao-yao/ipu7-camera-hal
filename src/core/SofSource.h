@@ -41,6 +41,8 @@ class SofSource : public EventSource {
     int deinitDev();
 
     PollThread<SofSource>* mPollThread;
+    int32_t mFlushFd[2];  // Flush file descriptor
+
     int mCameraId;
     V4L2Subdevice* mIsysReceiverSubDev;
     bool mExitPending;

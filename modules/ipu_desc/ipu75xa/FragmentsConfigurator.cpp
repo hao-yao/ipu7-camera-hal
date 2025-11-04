@@ -25,13 +25,14 @@
 * suppliers or licensors in any way.
 */
 #include "FragmentsConfigurator.h"
+#include <math.h>
 
 Ipu8FragmentsConfigurator::Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node, uint32_t upscalerWidthGranularity)
     : _staticGraph(staticGraph), _node(node), _upscalerWidthGranularity(upscalerWidthGranularity)
 {
 }
 
-StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments()
+StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments(std::vector<SmurfKernelInfo*>& smurfKernels)
 {
     if (_staticGraph == nullptr || _node == nullptr)
     {
@@ -44,17 +45,20 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments()
         _node->fragmentVanishStatus[stripe] = VanishOption::Full;
     }
 
-    for (uint32_t j = 0; j < _node->nodeKernels.kernelCount; j++)
+    StaticGraphStatus res = StaticGraphStatus::SG_OK;
+
+    const uint16_t* kenelConfigOrder = _node->getRunKernelConfigOrder();
+
+    for (uint16_t i = 0; i < _node->nodeKernels.kernelCount; i++)
     {
+        uint16_t j = kenelConfigOrder[i];
         StaticGraphRunKernel* runKernel = &_node->nodeKernels.kernelList[j].run_kernel;
         StaticGraphFragmentDesc* kernelFragments = _node->nodeKernels.kernelList[j].fragment_descs;
-
         // Take previous kernel as reference, unless we will change it below.
         StaticGraphFragmentDesc* prevKernelFragments = j == 0 ? nullptr : _node->nodeKernels.kernelList[j - 1].fragment_descs;
         uint32_t prevKernelUuid = j == 0 ? 0 : _node->nodeKernels.kernelList[j - 1].run_kernel.kernel_uuid;
 
         uint32_t referenceKernel = GraphResolutionConfiguratorHelper::getReferenceKernel(runKernel->kernel_uuid);
-
         if (referenceKernel != 0)
         {
             // Special reference kernel
@@ -76,45 +80,57 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments()
         {
             case GraphResolutionConfiguratorKernelRole::DownScaler:
             {
-                configFragmentsDownscaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsDownscaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::EspaCropper:
             {
-                configFragmentsCropper(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsCropper(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::UpScaler:
             {
-                configFragmentsUpscaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsUpscaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::Output:
             {
-                configFragmentsOutput(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsOutput(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::TnrScaler:
             {
-                configFragmentsTnrScaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsTnrScaler(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::TnrFeederFull:
             case GraphResolutionConfiguratorKernelRole::TnrFeederSmall:
             {
-                configFragmentsTnrFeeder(runKernel, kernelFragments, kernelRole);
+                res = configFragmentsTnrFeeder(runKernel, kernelFragments, kernelRole);
+                break;
+            }
+
+            case GraphResolutionConfiguratorKernelRole::Smurf:
+            {
+                res = configFragmentsSmurf(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments, smurfKernels);
+                break;
+            }
+
+            case GraphResolutionConfiguratorKernelRole::SmurfFeeder:
+            {
+                res = configFragmentsSmurfFeeder(runKernel, kernelFragments);
                 break;
             }
 
             case GraphResolutionConfiguratorKernelRole::NonRcb:
             {
                 // Before zoom kernels - take prev kernel fragments as-is
-                copyFragments(runKernel, prevKernelFragments, prevKernelUuid, kernelFragments);
+                res = copyFragments(runKernel, prevKernelFragments, prevKernelUuid, kernelFragments);
             }
 
             default:
@@ -122,6 +138,11 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments()
                 // No action for other kernels
                 break;
             }
+        }
+
+        if (res != StaticGraphStatus::SG_OK)
+        {
+            return res;
         }
     }
 
@@ -154,9 +175,62 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsDownscaler(StaticGra
         // Start of output is rounded up since this is what b2i_ds does (Creates pixels starting from the pixel after)
         value = (scaleFactor * kernelFragments[stripe].fragmentStartX) / 2;
         _outputStartX[runKernel->kernel_uuid][stripe] = static_cast<uint16_t>(ceil(value)) * 2;
+
+        // Check if pixels are missing in the last stripe
+        if (stripe == _node->numberOfFragments - 1)
+        {
+            if (_outputStartX[runKernel->kernel_uuid][stripe] + kernelFragments[stripe].fragmentOutputWidth < resInfo->output_width)
+            {
+                if (validateDownscalerOutputWidth(&(kernelFragments[stripe]), 4, stripe, scaleFactor, runKernel))
+                {
+                    kernelFragments[stripe].fragmentOutputWidth += 4;
+                }
+            }
+        }
     }
 
     return StaticGraphStatus::SG_OK;
+}
+
+bool Ipu8FragmentsConfigurator::validateDownscalerOutputWidth(StaticGraphFragmentDesc* stripe, uint16_t addition, int32_t stripeIndex, double scaleFactor, StaticGraphRunKernel* runKernel)
+{
+    const double ratio_prec = 1U << GraphResolutionConfigurator::SCALE_PREC;
+
+    int scaling_ratio = (int)ceil((1 / scaleFactor) * (double)(1U << GraphResolutionConfigurator::SCALE_PREC));
+    const double scaling_ratio_f = static_cast<double>(scaling_ratio) / ratio_prec;
+
+    int32_t offset_common = ((scaling_ratio - (static_cast<uint32_t>(1U) << GraphResolutionConfigurator::SCALE_PREC)) >> 1);
+
+    uint32_t orig_horizontal_offset;
+    if (stripeIndex == 0)
+    {
+        orig_horizontal_offset = (runKernel->resolution_info->input_crop.left << GraphResolutionConfigurator::SCALE_PREC) + offset_common;
+    }
+    else
+    {
+        orig_horizontal_offset = offset_common;
+    }
+    const uint16_t fragment_start_x = stripe->fragmentStartX;
+    const double calc = ceil((static_cast<double>(fragment_start_x) / scaling_ratio_f / 2.0)) * 2.0; //2 * ceil(x/2) means round up to a closest even number
+    double horizontal_offset = (static_cast<double>(orig_horizontal_offset) / ratio_prec) + static_cast<double>(scaling_ratio_f * calc - static_cast<double>(fragment_start_x));
+
+    const int32_t fragment_input_width = stripe->fragmentInputWidth;
+    const int32_t fragment_output_width = stripe->fragmentOutputWidth + addition;
+
+    int32_t horizontal_offset_fxp = static_cast<int32_t>(floor(horizontal_offset * ratio_prec));
+
+    //1
+    int32_t horizontal_offset_min = 0;
+    int32_t horizontal_offset_max = ((5 * scaling_ratio) - (1U << GraphResolutionConfigurator::SCALE_PREC)) / 2;
+
+    //2
+    horizontal_offset_min = std::max((58982 * fragment_input_width) - (fragment_output_width * scaling_ratio), horizontal_offset_min);
+    horizontal_offset_max = std::min((72089 * fragment_input_width) - (fragment_output_width * scaling_ratio), horizontal_offset_max);
+
+    //3
+    horizontal_offset_max = std::min(fragment_input_width * (1 << GraphResolutionConfigurator::SCALE_PREC) + scaling_ratio * (1 + 1 / 128) - fragment_output_width * scaling_ratio, horizontal_offset_max);
+
+    return (horizontal_offset_fxp >= horizontal_offset_min && horizontal_offset_fxp <= horizontal_offset_max);
 }
 
 void Ipu8FragmentsConfigurator::vanishStripe(uint8_t stripe, uint32_t runKerenlUuid, StaticGraphFragmentDesc* kernelFragments, VanishOption vanishOption)
@@ -189,7 +263,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsCropper(StaticGraphR
 
     for (int8_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
     {
-        if (leftPixel + VANISH_MIN >= kernelFragments[stripe].fragmentStartX + kernelFragments[stripe].fragmentInputWidth)
+        if (leftPixel + MIN_STRIPE_WIDTH_BEFORE_TNR >= kernelFragments[stripe].fragmentStartX + kernelFragments[stripe].fragmentInputWidth)
         {
             // This stripe is cropped out, vanish it!
             // Note that we set output width to 0 for ESPA cropper and forward. But Stripe vanishes much eairlier in pipe, and these infos are not updated.
@@ -204,7 +278,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsCropper(StaticGraphR
 
     for (uint8_t stripe = _node->numberOfFragments - 1; stripe >= 0; stripe--)
     {
-        if (rightPixel <= kernelFragments[stripe].fragmentStartX + VANISH_MIN)
+        if (rightPixel <= kernelFragments[stripe].fragmentStartX + MIN_STRIPE_WIDTH_BEFORE_TNR)
         {
             // This stripe is cropped out, vanish it!
             // Note that we set output width to 0 for ESPA cropper and forward. But Stripe vanishes much eairlier in pipe, and these infos are not updated.
@@ -321,7 +395,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
 
     // We would like to keep upscalerWidthGranularity as large as possible in order to minimize the number of pixels that cannot be used for upscaling
     // (upscalerWidthGranularity is divided to stripes, so the larger it is the more accurately we can divide)
-    while (inputUnits % 2 == 0)
+    while (inputUnits % 4 == 0)
     {
         inputUnits /= 2;
         upscalerWidthGranularity *= 2;
@@ -340,7 +414,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
             continue;
         }
 
-        if (leftPixel >= kernelFragments[stripe].fragmentStartX + kernelFragments[stripe].fragmentInputWidth)
+        if (leftPixel + MIN_STRIPE_WIDTH_AFTER_TNR >= kernelFragments[stripe].fragmentStartX + kernelFragments[stripe].fragmentInputWidth)
         {
             // This stripe is cropped out, vanish it!
             vanishStripe(stripe, runKernel->kernel_uuid, kernelFragments, VanishOption::AfterTnr);
@@ -359,7 +433,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
             continue;
         }
 
-        if (rightPixel <= kernelFragments[stripe].fragmentStartX)
+        if (rightPixel <= kernelFragments[stripe].fragmentStartX + MIN_STRIPE_WIDTH_AFTER_TNR)
         {
             // This stripe is cropped out, vanish it!
             vanishStripe(stripe, runKernel->kernel_uuid, kernelFragments, VanishOption::AfterTnr);
@@ -504,7 +578,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsOutput(StaticGraphRu
     {
         if (stripe == rightNonVanishedStripe) // last stripe
         {
-            kernelFragments[stripe].fragmentOutputWidth = static_cast<uint16_t>(runKernel->resolution_info->input_width - _outputStartX[runKernel->kernel_uuid][stripe]);
+            kernelFragments[stripe].fragmentOutputWidth = static_cast<uint16_t>(runKernel->resolution_info->output_width - _outputStartX[runKernel->kernel_uuid][stripe]);
         }
         else // first or middle stripe
         {
@@ -654,7 +728,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrScaler(StaticGrap
 
     for (int32_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
     {
-        if (_node->fragmentVanishStatus[stripe] != VanishOption::Full)
+        if (_node->fragmentVanishStatus[stripe] == VanishOption::AfterStats)
         {
             continue;
         }
@@ -667,14 +741,14 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrScaler(StaticGrap
 
     // Save stripes for feeder configuration
     _tnrScalerFragments = kernelFragments;
-    _tnrScalerUuid = runKernel->kernel_uuid;
+    _tnrScalerRunKernel = runKernel;
 
     return StaticGraphStatus::SG_OK;
 }
 
 StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, GraphResolutionConfiguratorKernelRole kernelRole)
 {
-    if (kernelFragments == nullptr)
+    if (kernelFragments == nullptr || _tnrScalerFragments == nullptr || _tnrScalerRunKernel == nullptr)
     {
         return StaticGraphStatus::SG_ERROR;
     }
@@ -691,6 +765,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrFeeder(StaticGrap
         if (kernelRole == GraphResolutionConfiguratorKernelRole::TnrFeederFull)
         {
             // TNR Full resolution
+            kernelFragments[stripe].fragmentInputWidth = static_cast<uint16_t>(_tnrScalerRunKernel->resolution_info->input_width);
             kernelFragments[stripe].fragmentOutputWidth = _tnrScalerFragments[stripe].fragmentInputWidth;
             kernelFragments[stripe].fragmentStartX = _tnrScalerFragments[stripe].fragmentStartX;
             _outputStartX[runKernel->kernel_uuid][stripe] = _tnrScalerFragments[stripe].fragmentStartX;
@@ -698,20 +773,100 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrFeeder(StaticGrap
         else // GraphResolutionConfiguratorKernelRole::TnrFeederSmall
         {
             // TNR Small resolution
+            kernelFragments[stripe].fragmentInputWidth = static_cast<uint16_t>(_tnrScalerRunKernel->resolution_info->output_width);
             kernelFragments[stripe].fragmentOutputWidth = _tnrScalerFragments[stripe].fragmentOutputWidth;
-            kernelFragments[stripe].fragmentStartX = _outputStartX[_tnrScalerUuid][stripe];
-            _outputStartX[runKernel->kernel_uuid][stripe] = _outputStartX[_tnrScalerUuid][stripe];
+            kernelFragments[stripe].fragmentStartX = _outputStartX[_tnrScalerRunKernel->kernel_uuid][stripe];
+            _outputStartX[runKernel->kernel_uuid][stripe] = _outputStartX[_tnrScalerRunKernel->kernel_uuid][stripe];
         }
     }
 
     return StaticGraphStatus::SG_OK;
 }
 
-void Ipu8FragmentsConfigurator::copyFragments(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* prevKernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* kernelFragments)
+StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurf(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments,
+    uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments, std::vector<SmurfKernelInfo*>& smurfKernels)
+{
+    if (kernelFragments == nullptr || prevKernelFragments == nullptr)
+    {
+        return StaticGraphStatus::SG_ERROR;
+    }
+
+    copyFragments(runKernel, prevKernelFragments, prevKernelUuid, kernelFragments);
+
+    // Find the device that is fed by this smurf (the second in the pair)
+    StaticGraphRunKernel* deviceRunKernel = nullptr;
+    for (auto& smurfInfo : smurfKernels)
+    {
+        if (smurfInfo->_smurfRunKernel->kernel_uuid == runKernel->kernel_uuid)
+        {
+            deviceRunKernel = smurfInfo->_deviceRunKernel;
+            break;
+        }
+    }
+
+    if (deviceRunKernel == nullptr)
+    {
+        // Smurf does not have a device?
+        return StaticGraphStatus::SG_ERROR;
+    }
+
+    // Find the index of the device in the node kernels
+    StaticGraphFragmentDesc* deviceFragments = nullptr;
+    for (uint32_t j = 0; j < _node->nodeKernels.kernelCount; j++)
+    {
+        if (_node->nodeKernels.kernelList[j].run_kernel.kernel_uuid == deviceRunKernel->kernel_uuid)
+        {
+
+            deviceFragments = _node->nodeKernels.kernelList[j].fragment_descs;
+            break;
+        }
+    }
+
+    if (deviceFragments == nullptr)
+    {
+        // Smurf does not have a device?
+        return StaticGraphStatus::SG_ERROR;
+    }
+
+    for (int8_t stripe = 0; stripe < _node->GetNumberOfFragments(); stripe++)
+    {
+        // If device is vanished, vanish the smurf too
+        if (deviceFragments[stripe].fragmentOutputWidth == 0 &&
+            deviceFragments[stripe].fragmentInputWidth == 0)
+        {
+            vanishStripe(stripe, runKernel->kernel_uuid, kernelFragments, _node->fragmentVanishStatus[stripe]);
+            continue;
+        }
+
+        // Smurf output is the same as the device input
+        kernelFragments[stripe].fragmentOutputWidth = deviceFragments[stripe].fragmentInputWidth;
+    }
+
+    return StaticGraphStatus::SG_OK;
+}
+
+StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurfFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments)
+{
+    if (runKernel == nullptr || kernelFragments == nullptr)
+    {
+        return StaticGraphStatus::SG_ERROR;
+    }
+
+    _outputStartX[runKernel->kernel_uuid] = std::vector<uint16_t>(_node->numberOfFragments, 0);
+
+    for (uint8_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
+    {
+        _outputStartX[runKernel->kernel_uuid][stripe] = static_cast<uint16_t>(kernelFragments[stripe].fragmentStartX - runKernel->resolution_info->input_crop.left);
+    }
+
+    return StaticGraphStatus::SG_OK;
+}
+
+StaticGraphStatus Ipu8FragmentsConfigurator::copyFragments(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* prevKernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* kernelFragments)
 {
     if (prevKernelFragments == nullptr || kernelFragments == nullptr)
     {
-        return;
+        return StaticGraphStatus::SG_ERROR;
     }
 
     _outputStartX[runKernel->kernel_uuid] = std::vector<uint16_t>(_node->numberOfFragments, 0);
@@ -719,7 +874,7 @@ void Ipu8FragmentsConfigurator::copyFragments(StaticGraphRunKernel* runKernel, S
     if (_outputStartX.find(prevKernelUuid) == _outputStartX.end())
     {
         // This is the main DS, we start from it, no need to copy
-        return;
+        return StaticGraphStatus::SG_OK;
     }
 
     for (uint32_t i = 0; i < _node->numberOfFragments; i++)
@@ -732,4 +887,6 @@ void Ipu8FragmentsConfigurator::copyFragments(StaticGraphRunKernel* runKernel, S
 
         _outputStartX[runKernel->kernel_uuid][i] = kernelFragments[i].fragmentStartX;
     }
+
+    return StaticGraphStatus::SG_OK;
 }
