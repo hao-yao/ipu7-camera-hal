@@ -27,7 +27,7 @@
 #include "iutils/CameraLog.h"
 #include "iutils/Utils.h"
 #include "CameraContext.h"
-#include "src/core/processingUnit/IPipeManagerFactory.h"
+#include "PipeManager.h"
 #include "StageDescriptor.h"
 
 #define EXTREME_STRENGTH_LEVEL4 (-120)
@@ -97,8 +97,7 @@ int ProcessingUnit::configure(const std::map<uuid, stream_t>& inputInfo,
     CheckAndLogError(ret != OK, ret, "%s: can't get config for mode %d", __func__, mConfigMode);
 
     LOG1("%s, Create PipeManager for ConfigMode %d", __func__, mConfigMode);
-    mPipeManager = unique_ptr<IPipeManager>
-                   (IPipeManagerFactory::createIPipeManager(mCameraId, this, mScheduler));
+    mPipeManager = unique_ptr<IPipeManager>(new PipeManager(mCameraId, this, mScheduler));
 
     ret = mPipeManager->configure(inputInfo, outputFrameInfo, tuningConfig.configMode,
                                   tuningConfig.tuningMode, &mYuvInputInfo);

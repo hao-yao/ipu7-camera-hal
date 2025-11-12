@@ -38,5 +38,6 @@ public:
     static uint32_t getRunKernelUuidOfOutput(HwSink hwSink, int32_t graphId, GraphLink** links);
     static StaticGraphStatus getRunKernelUuidForResHistoryUpdate(std::vector<uint32_t>& kernelUuids);
     static uint32_t getRunKernelIoBufferSystemApiUuid();
+    static uint32_t getRunKernelDownscalerSystemApiUuid();
     static GraphResolutionConfiguratorKernelRole getKernelRole(uint32_t kernelUuid);
 };

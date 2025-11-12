@@ -146,6 +146,11 @@ struct StaticGraphKernelSystemApiIoBuffer1_4 {
     uint32_t plane_start_address_per_stripe[12];
 };
 
+// ia_pal_system_api_b2i_ds_1_1_t;
+struct StaticGraphKernelSystemApiB2iDs1_1 {
+    uint8_t is_striping;
+};
+
 #endif
 struct StaticGraphKernelBppConfiguration {
     uint8_t input_bpp = 0;

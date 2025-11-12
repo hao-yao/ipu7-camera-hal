@@ -82,6 +82,8 @@ enum class GraphResolutionConfiguratorKernelRole : uint8_t
     TnrScaler,
     TnrFeederFull,
     TnrFeederSmall,
+    Smurf,
+    SmurfFeeder,
     None
 };
 
@@ -122,6 +124,8 @@ public:
     StaticGraphStatus undoSensorCropandScale(SensorRoi& sensor_roi);
     StaticGraphStatus sensorCropOrScaleExist(bool& sensor_crop_or_scale_exist);
     StaticGraphStatus undoSensorScaleRipAngle(int32_t& rip_angle);
+
+    static const int SCALE_PREC = 16;
 protected:
     StaticGraphStatus updateRunKernelPassThrough(StaticGraphRunKernel* runKernel, uint32_t width, uint32_t height);
     StaticGraphStatus updateRunKernelResolutionHistory(StaticGraphRunKernel* runKernel, StaticGraphRunKernel* prevRunKernel, bool updateResolution = true);
@@ -172,6 +176,15 @@ private:
 
 class Ipu8FragmentsConfigurator;
 
+class SmurfKernelInfo
+{
+public:
+    StaticGraphRunKernel* _smurfRunKernel;
+    StaticGraphRunKernel* _deviceRunKernel;
+    StaticGraphKernelResCrop _originalDeviceCropHistory = { 0,0,0,0 };
+    StaticGraphKernelResCrop _originalSmurfOutputCrop = { 0,0,0,0 };
+};
+
 class Ipu8GraphResolutionConfigurator : public GraphResolutionConfigurator
 {
 public:
@@ -191,6 +204,7 @@ private:
     StaticGraphStatus initRunKernel(uint32_t kernelUuid, StaticGraphRunKernel*& runKernel);
     StaticGraphStatus initOutputRunKernel();
     StaticGraphStatus initKernelsForUpdate();
+    StaticGraphStatus initIsFragments();
 
     // Calculate ROI in dimensions of pipe downscaler input.
     StaticGraphStatus getDownscalerInputRoi(const RegionOfInterest& userRoi, ResolutionRoi& pipeInputRoi);
@@ -201,7 +215,7 @@ private:
     StaticGraphStatus updateRunKernelUpScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelResCrop& cropperKernelCrop, uint32_t outputWidth, uint32_t outputHeight);
     StaticGraphStatus updateRunKernelCropper(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, uint32_t inputWidth, uint32_t inputHeight,
         uint32_t outputWidth, uint32_t outputHeight, StaticGraphKernelResCrop& downscalerCropHist);
-    StaticGraphStatus updateRunKernelSmurf(StaticGraphRunKernel* smurfRunKernel, StaticGraphRunKernel* deviceRunKernel);
+    StaticGraphStatus updateRunKernelSmurf(SmurfKernelInfo* smurfInfo);
 
     StaticGraphStatus SanityCheck();
     StaticGraphStatus SanityCheckCrop(StaticGraphKernelResCrop* crop);
@@ -220,9 +234,10 @@ private:
     StaticGraphRunKernel* _outputRunKernel;
     std::vector<StaticGraphRunKernel*> _kernelsForUpdateAfterCropper;
     std::vector<StaticGraphRunKernel*> _kernelsForUpdateAfterUpscaler;
-    std::vector<std::pair<StaticGraphRunKernel*, StaticGraphRunKernel*>> _smurfKernels;
+    std::vector<SmurfKernelInfo*> _smurfKernels;
 
     // For striping
     OuterNode* _node = nullptr;
     Ipu8FragmentsConfigurator* _fragmentsConfigurator = nullptr;
+    bool _isFragments = false;
 };

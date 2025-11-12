@@ -70,11 +70,6 @@ class CameraStream : public BufferConsumer, public EventSource {
     int allocateMemory(camera_buffer_t* ubuffer);
 
     /**
-     * \brief Register the mBufferProducer
-     */
-    virtual void setBufferProducer(BufferProducer* producer);
-
-    /**
      * \brief The notify when polled or processed one frame buffer
      */
     virtual int onBufferAvailable(uuid port, const std::shared_ptr<CameraBuffer>& camBuffer);
@@ -86,7 +81,6 @@ class CameraStream : public BufferConsumer, public EventSource {
     int mCameraId;
     int mStreamId;
     uuid mPort;
-    BufferProducer* mBufferProducer;
 
     // Guard for member mInputBuffersPool and mBufferInProcessing
     Mutex mBufferPoolLock;

@@ -42,7 +42,6 @@ libcamera_sources += files([
     'core/PSysDevice.cpp',
     'core/SofSource.cpp',
     'core/processingUnit/PipeManager.cpp',
-    'core/processingUnit/IPipeManagerFactory.cpp',
     'core/processingUnit/PipeLine.cpp',
     'core/processingUnit/CBStage.cpp',
 # FILE_SOURCE_S

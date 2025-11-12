@@ -32,7 +32,6 @@ CameraStream::CameraStream(int cameraId, int streamId, const stream_t& stream)
         : mCameraId(cameraId),
           mStreamId(streamId),
           mPort(USER_DEFAULT_PORT_UID),
-          mBufferProducer(nullptr),
           mBufferInProcessing(0) {
     LOG2("<id%d>@%s: streamid:%d automation checkpoint: %dx%d, format: %s", mCameraId, __func__,
          streamId, stream.width, CameraUtils::getInterlaceHeight(stream.field, stream.height),
@@ -143,15 +142,6 @@ int CameraStream::qbuf(camera_buffer_t* ubuffer, int64_t sequence, bool addExtra
         }
     }
     return ret;
-}
-
-// This function is called in stop status, no lock
-void CameraStream::setBufferProducer(BufferProducer* producer) {
-    mBufferProducer = producer;
-
-    if (producer != nullptr) {
-        producer->addFrameAvailableListener(this);
-    }
 }
 
 int CameraStream::onBufferAvailable(uuid port, const shared_ptr<CameraBuffer>& camBuffer) {

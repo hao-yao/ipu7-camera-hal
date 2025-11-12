@@ -70,7 +70,6 @@ set(CORE_SRCS
     set(CORE_SRCS
         ${CORE_SRCS}
         ${CORE_DIR}/ProcessingUnit.cpp
-        ${CORE_DIR}/processingUnit/IPipeManagerFactory.cpp
         CACHE INTERNAL "core sources"
     )
 
