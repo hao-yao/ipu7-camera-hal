@@ -27,8 +27,7 @@
 #include "FragmentsConfigurator.h"
 #include <math.h>
 
-Ipu8FragmentsConfigurator::Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node, uint32_t upscalerWidthGranularity)
-    : _staticGraph(staticGraph), _node(node), _upscalerWidthGranularity(upscalerWidthGranularity)
+Ipu8FragmentsConfigurator::Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node) : _staticGraph(staticGraph), _node(node)
 {
 }
 
@@ -390,16 +389,15 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
     auto scaleFactorW = static_cast<double>(resInfo->input_width - resInfo->input_crop.left - resInfo->input_crop.right) / resInfo->output_width;
     auto scaleFactorH = static_cast<double>(resInfo->input_height - resInfo->input_crop.top - resInfo->input_crop.bottom) / resInfo->output_height;
     auto scaleFactor = std::max(scaleFactorW, scaleFactorH);
-    uint32_t upscalerWidthGranularity = _upscalerWidthGranularity;
-    uint16_t inputUnits = static_cast<uint16_t>((resInfo->input_width - resInfo->input_crop.left - resInfo->input_crop.right) / upscalerWidthGranularity);
+
+    int32_t croppedInputWidth = resInfo->input_width - resInfo->input_crop.left - resInfo->input_crop.right;
+    int32_t outputWidth = resInfo->output_width;
 
     // We would like to keep upscalerWidthGranularity as large as possible in order to minimize the number of pixels that cannot be used for upscaling
     // (upscalerWidthGranularity is divided to stripes, so the larger it is the more accurately we can divide)
-    while (inputUnits % 4 == 0)
-    {
-        inputUnits /= 2;
-        upscalerWidthGranularity *= 2;
-    }
+    // Find the largest granularity that divides both
+    uint32_t upscalerWidthGranularity = calculateGcd(static_cast<uint32_t>(croppedInputWidth), static_cast<uint32_t>(outputWidth));
+    uint16_t inputUnits = static_cast<uint16_t>(croppedInputWidth / upscalerWidthGranularity);
 
     int32_t leftPixel = runKernel->resolution_info->input_crop.left;
     int32_t rightPixel = static_cast<uint16_t>(runKernel->resolution_info->input_width - runKernel->resolution_info->input_crop.right);
@@ -510,7 +508,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
 
         outputStartX += kernelFragments[stripe].upscalerFragDesc.fragmentInputCropLeft;
 
-        outputStartX = GRA_ROUND_UP(static_cast<uint16_t>(ceil(static_cast<double>(outputStartX) / scaleFactor)), 2);
+        outputStartX = GRA_ROUND_DOWN(static_cast<uint16_t>(floor(static_cast<double>(outputStartX) / scaleFactor)), 2);
 
         _outputStartX[runKernel->kernel_uuid][stripe] = outputStartX;
     }
@@ -780,6 +778,31 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrFeeder(StaticGrap
         }
     }
 
+    // Update system API offsets
+
+#ifdef STATIC_GRAPH_USE_IA_LEGACY_TYPES
+    if (runKernel->system_api.size != ((GRA_ROUND_UP(sizeof(SystemApiRecordHeader), 4)) + (sizeof(StaticGraphKernelSystemApiIoBuffer1_4))))
+    {
+        // TODO log error
+        return StaticGraphStatus::SG_ERROR;
+    }
+#endif
+
+    auto systemApiHeader = static_cast<SystemApiRecordHeader*>(runKernel->system_api.data);
+    if (systemApiHeader->systemApiUuid != GraphResolutionConfiguratorHelper::getRunKernelIoBufferSystemApiUuid())
+    {
+        // TODO log error
+        return StaticGraphStatus::SG_ERROR;
+    }
+
+    StaticGraphKernelSystemApiIoBuffer1_4* systemApi = reinterpret_cast<StaticGraphKernelSystemApiIoBuffer1_4*>
+        (static_cast<int8_t*>(runKernel->system_api.data) + GRA_ROUND_UP(sizeof(SystemApiRecordHeader), 4));
+
+    for (uint8_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
+    {
+        systemApi->x_output_offset_per_stripe[stripe] = _outputStartX[runKernel->kernel_uuid][stripe];
+    }
+
     return StaticGraphStatus::SG_OK;
 }
 
@@ -889,4 +912,16 @@ StaticGraphStatus Ipu8FragmentsConfigurator::copyFragments(StaticGraphRunKernel*
     }
 
     return StaticGraphStatus::SG_OK;
+}
+
+// Find the greatest common divisor, curtesy of CoPilot
+uint32_t Ipu8FragmentsConfigurator::calculateGcd(uint32_t a, uint32_t b)
+{
+    while (b != 0)
+    {
+        uint32_t t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
 }

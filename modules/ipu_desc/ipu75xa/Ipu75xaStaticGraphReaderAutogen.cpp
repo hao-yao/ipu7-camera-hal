@@ -85,6 +85,21 @@ std::pair<int, const GraphConfigurationHeader*> StaticGraphReader::GetGraphConfi
     return std::make_pair(_binaryHeader.numberOfResolutions, _graphConfigurationHeaders);
 }
 
+GraphConfigurationKey* StaticGraphReader::GetFdGraphConfigurationKey(GraphConfigurationKey& settingsKey) const
+{
+    for (uint32_t i = 0; i < _binaryHeader.numberOfResolutions; i++)
+    {
+        if (settingsKey.attributes == _graphConfigurationHeaders[i].settingsKey.attributes && 
+            (((settingsKey.preview.width != 0 && _graphConfigurationHeaders[i].settingsKey.preview.width == settingsKey.preview.width && _graphConfigurationHeaders[i].settingsKey.preview.height == settingsKey.preview.height) ||
+            (settingsKey.video.width != 0 && _graphConfigurationHeaders[i].settingsKey.video.width == settingsKey.video.width && _graphConfigurationHeaders[i].settingsKey.video.height == settingsKey.video.height)) && 
+            _graphConfigurationHeaders[i].settingsKey.postProcessingVideo.width != 0))
+        {
+            return &_graphConfigurationHeaders[i].settingsKey;
+        }
+    }
+    return NULL;
+}
+
 StaticGraphStatus StaticGraphReader::GetStaticGraphConfig(GraphConfigurationKey& settingsKey, IStaticGraphConfig** graph)
 {
     if (!_graphConfigurationHeaders || !_sensorModes || !_configurationData)

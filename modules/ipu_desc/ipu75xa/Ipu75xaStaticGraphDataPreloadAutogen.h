@@ -28,7 +28,7 @@
 #ifndef DATA_RANGE_H_
 #define DATA_RANGE_H_
 
-#include <cstdint>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 
