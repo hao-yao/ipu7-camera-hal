@@ -27,7 +27,7 @@
 #pragma once
 #include <vector>
 #include <map>
-#include <cstdint>
+#include <stdint.h>
 
 #define _USE_MATH_DEFINES
 #define GRA_ROUND_UP(a,b)  (((a) + ((b)-1)) / (b) * (b))
@@ -213,8 +213,7 @@ private:
 
     StaticGraphStatus updateRunKernelDownScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, uint32_t& outputWidth, uint32_t& outputHeight);
     StaticGraphStatus updateRunKernelUpScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelResCrop& cropperKernelCrop, uint32_t outputWidth, uint32_t outputHeight);
-    StaticGraphStatus updateRunKernelCropper(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, uint32_t inputWidth, uint32_t inputHeight,
-        uint32_t outputWidth, uint32_t outputHeight, StaticGraphKernelResCrop& downscalerCropHist);
+    StaticGraphStatus updateRunKernelCropper(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelRes* downscalerResInfo, uint32_t outputWidth, uint32_t outputHeight);
     StaticGraphStatus updateRunKernelSmurf(SmurfKernelInfo* smurfInfo);
 
     StaticGraphStatus SanityCheck();

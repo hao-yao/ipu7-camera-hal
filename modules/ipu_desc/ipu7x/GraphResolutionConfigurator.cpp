@@ -1189,7 +1189,7 @@ Ipu8GraphResolutionConfigurator::Ipu8GraphResolutionConfigurator(IStaticGraphCon
 
     if (_node != nullptr && _node->GetNumberOfFragments() > 1)
     {
-        _fragmentsConfigurator = new Ipu8FragmentsConfigurator(_staticGraph, _node, _upscalerStepW);
+        _fragmentsConfigurator = new Ipu8FragmentsConfigurator(_staticGraph, _node);
     }
 
 #endif
@@ -1434,10 +1434,14 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::getDownscalerInputRoi(const R
     // Translate the ROI to input, using res hist of output
     ResolutionRoi pipeInputRoi;
 
-    pipeInputRoi.left = static_cast<uint32_t>(((outputLeft + _originalCropOfOutput.left) * _widthIn2OutScale) + _originaHistoryOfOutput.left);
-    pipeInputRoi.right = static_cast<uint32_t>(((outputRight + _originalCropOfOutput.right) * _widthIn2OutScale) + _originaHistoryOfOutput.right);
-    pipeInputRoi.top = static_cast<uint32_t>(((outputTop + _originalCropOfOutput.top) * _heightIn2OutScale) + _originaHistoryOfOutput.top);
-    pipeInputRoi.bottom = static_cast<uint32_t>(((outputBottom + _originalCropOfOutput.bottom) * _heightIn2OutScale) + _originaHistoryOfOutput.bottom);
+    // _widthIn2OutScale and _heightIn2OutScale are relative to pipe input. History is relative to full sensor resolution
+    double widthHistScale = _widthIn2OutScale / _sensorHorizontalScaling;
+    double heightHistScale = _heightIn2OutScale / _sensorVerticalScaling;
+
+    pipeInputRoi.left = static_cast<uint32_t>(((outputLeft + _originalCropOfOutput.left) * widthHistScale) + _originaHistoryOfOutput.left);
+    pipeInputRoi.right = static_cast<uint32_t>(((outputRight + _originalCropOfOutput.right) * widthHistScale) + _originaHistoryOfOutput.right);
+    pipeInputRoi.top = static_cast<uint32_t>(((outputTop + _originalCropOfOutput.top) * heightHistScale) + _originaHistoryOfOutput.top);
+    pipeInputRoi.bottom = static_cast<uint32_t>(((outputBottom + _originalCropOfOutput.bottom) * heightHistScale) + _originaHistoryOfOutput.bottom);
 
     // Translate ROI on input to ROI as input to downscaler
     double scaleWidth = static_cast<double>(_downscalerRunKernel->resolution_history->input_width
@@ -1483,8 +1487,7 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelOfScalers(Reso
             ret = StaticGraphStatus::SG_ERROR;
         }
 
-        StaticGraphKernelResCrop EmptyCrop = { 0, 0, 0, 0 };
-        if (updateRunKernelCropper(_cropperRunKernel, roi, dsOutputWidth, dsOutputHeight, outputWidth, outputHeight, downscalerCropHist) != StaticGraphStatus::SG_OK)
+        if (updateRunKernelCropper(_cropperRunKernel, roi, _downscalerRunKernel->resolution_info, outputWidth, outputHeight) != StaticGraphStatus::SG_OK)
         {
             ret = StaticGraphStatus::SG_ERROR;
         }
@@ -1496,8 +1499,7 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelOfScalers(Reso
         updateRunKernelPassThrough(_downscalerRunKernel, inputWidth, inputHeight);
 
         // Configure ESPA crop to output resolution (TNR ROI)
-        if (updateRunKernelCropper(_cropperRunKernel, roi, inputWidth, inputHeight, outputWidth, outputHeight,
-            downscalerCropHist) != StaticGraphStatus::SG_OK)
+        if (updateRunKernelCropper(_cropperRunKernel, roi, _downscalerRunKernel->resolution_info, outputWidth, outputHeight) != StaticGraphStatus::SG_OK)
         {
             ret = StaticGraphStatus::SG_ERROR;
         }
@@ -1564,7 +1566,8 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelOfScalers(Reso
     return ret;
 }
 
-StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelDownScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, uint32_t& outputWidth, uint32_t& outputHeight)
+StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelDownScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi,
+    uint32_t& outputWidth, uint32_t& outputHeight)
 {
     StaticGraphStatus ret = StaticGraphStatus::SG_OK;
 
@@ -1605,67 +1608,35 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelDownScaler(Sta
 }
 
 StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelCropper(StaticGraphRunKernel* runKernel, ResolutionRoi& roi,
-    uint32_t inputWidth, uint32_t inputHeight,
-    uint32_t outputWidth, uint32_t outputHeight,
-    StaticGraphKernelResCrop& downscalerCropHist)
+    StaticGraphKernelRes* downscalerResInfo,
+    uint32_t outputWidth, uint32_t outputHeight)
 {
-
-    runKernel->resolution_info->input_width = inputWidth;
-    runKernel->resolution_info->input_height = inputHeight;
+    runKernel->resolution_info->input_width = downscalerResInfo->output_width;
+    runKernel->resolution_info->input_height = downscalerResInfo->output_height;
 
     runKernel->resolution_info->output_width = outputWidth;
     runKernel->resolution_info->output_height = outputHeight;
 
-    runKernel->resolution_info->input_crop.left = 0;
-    runKernel->resolution_info->input_crop.right = 0;
-    runKernel->resolution_info->input_crop.top = 0;
-    runKernel->resolution_info->input_crop.bottom = 0;
+    // Configure to crop the required amount.
+    int32_t totalHorizontalCrop = runKernel->resolution_info->input_width - outputWidth;
 
-    // In certain cases need to adjust negative and/or odd crop values.
-    if (downscalerCropHist.left & 1)
+    // Now crop to TNR size if any more cropping is required, according to the required ROI
+    uint32_t cropLeft = roi.left;
+    uint32_t cropRight = roi.right;
+
+    if (downscalerResInfo->input_crop.right > 0)
     {
-        downscalerCropHist.left = downscalerCropHist.left - 1;
-    }
-    if (downscalerCropHist.right & 1)
-    {
-        downscalerCropHist.right = downscalerCropHist.right - 1;
-    }
-    if (downscalerCropHist.top & 1)
-    {
-        downscalerCropHist.top = downscalerCropHist.top - 1;
-    }
-    if (downscalerCropHist.bottom & 1)
-    {
-        downscalerCropHist.bottom = downscalerCropHist.bottom - 1;
+        double scale = static_cast<double>(downscalerResInfo->output_width) /
+            (downscalerResInfo->input_width - downscalerResInfo->input_crop.left - downscalerResInfo->input_crop.right);
+        cropRight -= GRA_ROUND_UP(static_cast<uint32_t>(downscalerResInfo->input_crop.right * scale), 2);
     }
 
-    // Configure to crop the required amount. First try to use the original DS cropping (Remove padding)
-    int32_t totalHorizontalCrop = inputWidth - outputWidth;
+    // Calculate the crop after downscale, relatively to the desired crop before the downscale
+    cropLeft = (cropLeft + cropRight) == 0 ? 0 :
+        GRA_ROUND_DOWN(static_cast<int32_t>(GRA_ROUND(static_cast<double>(cropLeft) / (cropLeft + cropRight) * totalHorizontalCrop)), 2);
 
-    int32_t originalDsCrop = downscalerCropHist.left < 0 ? -downscalerCropHist.left : 0;
-    if (totalHorizontalCrop >= originalDsCrop && originalDsCrop > 0)
-    {
-        runKernel->resolution_info->input_crop.left = originalDsCrop;
-        totalHorizontalCrop -= originalDsCrop;
-
-        // Padding was handled, no need to handle again
-        downscalerCropHist.left = 0;
-    }
-
-    originalDsCrop = downscalerCropHist.right < 0 ? -downscalerCropHist.right : 0;
-    if (totalHorizontalCrop >= originalDsCrop && originalDsCrop > 0)
-    {
-        runKernel->resolution_info->input_crop.right = originalDsCrop;
-        totalHorizontalCrop -= originalDsCrop;
-
-        // Padding was handled, no need to handle again
-        downscalerCropHist.right = 0;
-    }
-
-    // Now crop symmetrically to TNR size if any more cropping is required
-    // :TODO: fix this for PTZ with striping since should take roi into account
-    runKernel->resolution_info->input_crop.left += GRA_ROUND_DOWN(static_cast<uint32_t>(static_cast<double>(totalHorizontalCrop)) / 2, 2);
-    runKernel->resolution_info->input_crop.right += (totalHorizontalCrop - GRA_ROUND_DOWN(static_cast<uint32_t>(static_cast<double>(totalHorizontalCrop)) / 2, 2));
+    runKernel->resolution_info->input_crop.left = cropLeft;
+    runKernel->resolution_info->input_crop.right = totalHorizontalCrop - cropLeft;
 
     if (roi.left < static_cast<uint32_t>(runKernel->resolution_info->input_crop.left))
     {
@@ -1678,33 +1649,24 @@ StaticGraphStatus Ipu8GraphResolutionConfigurator::updateRunKernelCropper(Static
         runKernel->resolution_info->input_crop.right = roi.right;
     }
 
-    // Configure to crop the required amount. First try to use the original DS cropping (Remove padding)
-    int32_t totalVerticalCrop = inputHeight - outputHeight;
+    int32_t totalVerticalCrop = runKernel->resolution_info->input_height - outputHeight;
 
-    originalDsCrop = downscalerCropHist.top < 0 ? -downscalerCropHist.top : 0;
-    if (totalVerticalCrop >= originalDsCrop && originalDsCrop > 0)
+    // Now crop to TNR size if any more cropping is required, according to the required ROI
+    uint32_t cropTop = roi.top;
+    uint32_t cropBottom = roi.bottom;
+
+    if (downscalerResInfo->input_crop.bottom > 0)
     {
-        runKernel->resolution_info->input_crop.top = originalDsCrop;
-        totalVerticalCrop -= originalDsCrop;
-
-        // Padding was handled, no need to handle again
-        downscalerCropHist.top = 0;
+        double scale = static_cast<double>(downscalerResInfo->output_height) /
+            (downscalerResInfo->input_height - downscalerResInfo->input_crop.top - downscalerResInfo->input_crop.bottom);
+        cropBottom -= GRA_ROUND_UP(static_cast<uint32_t>(downscalerResInfo->input_crop.bottom * scale), 2);
     }
 
-    originalDsCrop = downscalerCropHist.bottom < 0 ? -downscalerCropHist.bottom : 0;
-    if (totalVerticalCrop >= originalDsCrop && originalDsCrop > 0)
-    {
-        runKernel->resolution_info->input_crop.bottom = originalDsCrop;
-        totalVerticalCrop -= originalDsCrop;
+    cropTop = (cropTop + cropBottom) == 0 ? 0 :
+        GRA_ROUND_DOWN(static_cast<int32_t>(GRA_ROUND(static_cast<double>(cropTop) / (cropTop + cropBottom) * totalVerticalCrop)), 2);
 
-        // Padding was handled, no need to handle again
-        downscalerCropHist.bottom = 0;
-    }
-
-    // Now crop symmetrically to TNR size if any more cropping is required
-    // :TODO: fix this for PTZ with striping since should take roi into account
-    runKernel->resolution_info->input_crop.top += GRA_ROUND_DOWN(static_cast<uint32_t>(static_cast<double>(totalVerticalCrop)) / 2, 2);
-    runKernel->resolution_info->input_crop.bottom += (totalVerticalCrop - GRA_ROUND_DOWN(static_cast<uint32_t>(static_cast<double>(totalVerticalCrop)) / 2, 2));
+    runKernel->resolution_info->input_crop.top = cropTop;
+    runKernel->resolution_info->input_crop.bottom = totalVerticalCrop - cropTop;
 
     if (roi.top < static_cast<uint32_t>(runKernel->resolution_info->input_crop.top))
     {

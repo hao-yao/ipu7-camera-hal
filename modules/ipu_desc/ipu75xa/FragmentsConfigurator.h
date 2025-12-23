@@ -34,7 +34,7 @@ public:
     static const int32_t MIN_STRIPE_WIDTH_BEFORE_TNR = 128;
     static const int32_t MIN_STRIPE_WIDTH_AFTER_TNR = 64;
     static const int32_t UPSCALER_MAX_OUTPUT_WIDTH = 4672;
-    Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node, uint32_t upscalerWidthGranularity);
+    Ipu8FragmentsConfigurator(IStaticGraphConfig* staticGraph, OuterNode* node);
 
     StaticGraphStatus configureFragments(std::vector<SmurfKernelInfo*>& smurfKernels);
 
@@ -55,13 +55,13 @@ private:
     uint32_t getPlaneStartAddress(uint32_t sumOfPrevWidths, FormatType formatType, uint8_t plane);
     uint16_t alignToFormatRestrictions(uint16_t size, FormatType bufferFormat);
     bool validateDownscalerOutputWidth(StaticGraphFragmentDesc* stripe, uint16_t addition, int32_t stripeIndex, double scaleFactor, StaticGraphRunKernel* runKernel);
+    uint32_t calculateGcd(uint32_t a, uint32_t b);
 
     OuterNode* _node = nullptr;
     IStaticGraphConfig* _staticGraph = nullptr;
 
     // Fragments binaries do not contain output start x, so we keep them here
     std::map<uint32_t, std::vector<uint16_t>> _outputStartX;
-    uint32_t _upscalerWidthGranularity = 1;
 
     // Save TNR resolutions for feeder configurations
     StaticGraphFragmentDesc* _tnrScalerFragments = nullptr;
