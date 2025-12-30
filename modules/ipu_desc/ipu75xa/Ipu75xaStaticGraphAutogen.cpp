@@ -959,7 +959,7 @@ void SwImvOuterNode::Init(SwImvOuterNodeConfiguration** selectedGraphConfigurati
 {
     OuterNode::Init(6, NodeTypes::Sw, 2, nodeKernelConfigurationsOptionsCount, selectedGraphConfiguration[0]->tuningMode, selectedGraphConfiguration[0]->streamId, 0);
 
-    uint16_t kernelsUuids[2] = {33331 /*imv*/, 19706 /*sw_scaler*/};
+    uint16_t kernelsUuids[2] = {23692 /*imv*/, 19706 /*sw_scaler*/};
     uint64_t kernelsRcbBitmap = 0x3; // { imv[0], sw_scaler[1] }
     uint64_t kernelsResolutionHistoryGroupBitmap = 0x2; // {{imv}[0], {sw_scaler}[1] }
     uint8_t systemApisSizes[2] = {0 /*imv*/, 5 /*sw_scaler*/};

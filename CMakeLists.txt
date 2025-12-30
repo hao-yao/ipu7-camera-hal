@@ -20,6 +20,7 @@ project(libcamhal)
 
 option(BUILD_CAMHAL_PLUGIN "Build libcamhal as plugins" OFF)
 option(BUILD_CAMHAL_ADAPTOR "Build hal_adaptor as libcamhal" OFF)
+option(LINUX_PRIVACY_MODE "Enable Linux privacy mode support" ON)
 
 #------------------------- Global settings -------------------------
 
@@ -167,6 +168,9 @@ endif()
 message("Linux build")
 add_definitions(-DSUPPORT_MULTI_PROCESS)
 add_definitions(-DLINUX_BUILD)
+if (LINUX_PRIVACY_MODE)
+    add_definitions(-DLINUX_PRIVACY_MODE)
+endif()
 include_directories(${MODULES_DIR}/v4l2)
 find_package(LIBDRM)
 if(LIBDRM_FOUND AND ("${LIBDRM_VERSION}" VERSION_GREATER_EQUAL 2.4.114))

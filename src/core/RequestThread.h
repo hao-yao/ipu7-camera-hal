@@ -38,6 +38,13 @@ public:
 
     virtual void handleEvent(EventData eventData);
 
+#ifdef LINUX_PRIVACY_MODE
+    /**
+     * \brief Reset request processing state.
+     */
+    void resetSequence();
+#endif
+
     /**
      * \Clear pending requests.
      */

@@ -1447,4 +1447,13 @@ bool PlatformData::isUsePSysProcessor(int cameraId) {
     return getInstance()->mStaticCfg.mCameras[cameraId].mUsePSysProcessor;
 }
 
+#ifdef LINUX_PRIVACY_MODE
+int PlatformData::getPrivacyShutterEventCode(int cameraId) {
+    return getInstance()->mStaticCfg.mCameras[cameraId].mPrivacyShutterEventCode;
+}
+
+int PlatformData::getPrivacyShutterEventType(int cameraId) {
+    return getInstance()->mStaticCfg.mCameras[cameraId].mPrivacyShutterEventType;
+}
+#endif
 }  // namespace icamera

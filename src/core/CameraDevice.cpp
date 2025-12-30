@@ -64,6 +64,10 @@ CameraDevice::CameraDevice(int cameraId)
     // CSI_META_E
 
     mProducer = createBufferProducer();
+#ifdef LINUX_PRIVACY_MODE
+    mBackupProducer = new DummyImageSource(mCameraId);
+    mPrivacyShutter = new InputEventMonitor();
+#endif
 
     mSofSource = new SofSource(mCameraId);
 
@@ -84,6 +88,12 @@ CameraDevice::~CameraDevice() {
     PERF_CAMERA_ATRACE();
     LOG1("<id%d>@%s", mCameraId, __func__);
     AutoMutex m(mDeviceLock);
+
+#ifdef LINUX_PRIVACY_MODE
+    if (mPrivacyShutter->isConfigured()) {
+        mPrivacyShutter->stop();
+    }
+#endif
 
     // Clear the media control when close the device.
     MediaControl* mc = MediaControl::getInstance();
@@ -106,6 +116,10 @@ CameraDevice::~CameraDevice() {
     delete m3AControl;
     delete mSensorCtrl;
     delete mSofSource;
+#ifdef LINUX_PRIVACY_MODE
+    delete mPrivacyShutter;
+    delete mBackupProducer;
+#endif
     delete mProducer;
     // CSI_META_S
     delete mCsiMetaDevice;
@@ -124,6 +138,11 @@ int CameraDevice::init() {
 
     int ret = mProducer->init();
     CheckAndLogError(ret < 0, ret, "%s: Init capture unit failed", __func__);
+
+#ifdef LINUX_PRIVACY_MODE
+    ret = mBackupProducer->init();
+    CheckAndLogError(ret < 0, ret, "%s: Init dummy image producer failed", __func__);
+#endif
 
     // CSI_META_S
     ret = mCsiMetaDevice->init();
@@ -174,6 +193,9 @@ void CameraDevice::deinit() {
     mCsiMetaDevice->deinit();
     // CSI_META_E
 
+#ifdef LINUX_PRIVACY_MODE
+    mBackupProducer->deinit();
+#endif
     mProducer->deinit();
 
     mState = DEVICE_UNINIT;
@@ -239,6 +261,9 @@ void CameraDevice::bindListeners() {
     }
 
     mSofSource->registerListener(EVENT_ISYS_SOF, mRequestThread);
+#ifdef LINUX_PRIVACY_MODE
+    mPrivacyShutter->registerListener(EVENT_INPUT_EVENT, this);
+#endif
     // FILE_SOURCE_S
     if (PlatformData::isFileSourceEnabled()) {
         // File source needs to produce SOF event as well when it's enabled.
@@ -281,6 +306,9 @@ void CameraDevice::unbindListeners() {
         mProducer->removeListener(EVENT_ISYS_FRAME, mRequestThread);
     }
 
+#ifdef LINUX_PRIVACY_MODE
+    mPrivacyShutter->removeListener(EVENT_INPUT_EVENT, this);
+#endif
     mSofSource->removeListener(EVENT_ISYS_SOF, mRequestThread);
     // FILE_SOURCE_S
     if (PlatformData::isFileSourceEnabled()) {
@@ -318,6 +346,9 @@ int CameraDevice::configure(stream_config_t* streamList) {
     delete mProcessingUnit;
     mProcessingUnit = nullptr;
     mProducer->removeAllFrameAvailableListener();
+#ifdef LINUX_PRIVACY_MODE
+    mBackupProducer->removeAllFrameAvailableListener();
+#endif
 
     /*
      * The configure flow for CameraStream
@@ -418,6 +449,17 @@ int CameraDevice::configure(stream_config_t* streamList) {
     ret = mProducer->configure(producerConfigs);
     CheckAndLogError(ret < 0, BAD_VALUE, "@%s Device Configure failed", __func__);
 
+#ifdef LINUX_PRIVACY_MODE
+    int eventType = PlatformData::getPrivacyShutterEventType(mCameraId);
+    int eventCode = PlatformData::getPrivacyShutterEventCode(mCameraId);
+    if (eventType < 0 || eventCode < 0) {
+        LOG1("@%s Privacy shutter is not configured", __func__);
+    } else {
+        ret = mPrivacyShutter->configure(eventType, eventCode);
+        CheckAndLogError(ret < 0, ret, "@%s Privacy shutter configure failed", __func__);
+    }
+#endif
+
     // CSI_META_S
     ret = mCsiMetaDevice->configure();
     CheckAndLogError(ret != OK, ret, "@%s failed to configure CSI meta device", __func__);
@@ -451,7 +493,20 @@ int CameraDevice::configure(stream_config_t* streamList) {
             ret = mProcessingUnit->configure(producerConfigs, outputConfigs, configModes[0]);
             CheckAndLogError(ret != OK, ret, "@%s failed to configure ProcessingUnit", __func__);
             mProcessingUnit->setBufferProducer(mProducer);
+#ifdef LINUX_PRIVACY_MODE
+            if (mPrivacyShutter->isConfigured()) {
+                ret = mBackupProducer->configure(outputConfigs);
+                CheckAndLogError(ret < 0, BAD_VALUE, "@%s Dummy image producer Configure failed", __func__);
+            }
+#endif
         }
+#ifdef LINUX_PRIVACY_MODE
+    } else {
+        if (mPrivacyShutter->isConfigured()) {
+            ret = mBackupProducer->configure(producerConfigs);
+            CheckAndLogError(ret < 0, BAD_VALUE, "@%s Dummy image producer Configure failed", __func__);
+        }
+#endif
     }
 
     ret = bindStreams(streamList);
@@ -760,21 +815,33 @@ int CameraDevice::start() {
     // Not protected by mDeviceLock because it is required in qbufL()
     mRequestThread->wait1stRequestDone();
 
-    AutoMutex m(mDeviceLock);
-    CheckAndLogError(mState != DEVICE_BUFFER_READY, BAD_VALUE, "start camera in wrong status %d",
-                     mState);
-    CheckAndLogError(mStreamNum == 0, BAD_VALUE, "@%s: device doesn't add any stream yet.",
-                     __func__);
+    {
+        AutoMutex m(mDeviceLock);
+        CheckAndLogError(mState != DEVICE_BUFFER_READY, BAD_VALUE,
+                         "start camera in wrong status %d", mState);
+        CheckAndLogError(mStreamNum == 0, BAD_VALUE,
+                         "@%s: device doesn't add any stream yet.", __func__);
 
-    mScheduler->start();
-    const int ret = startLocked();
-    if (ret != OK) {
-        LOGE("Camera device starts failed.");
-        (void)stopLocked();  // There is error happened, stop all related units.
-        return INVALID_OPERATION;
+        mScheduler->start();
+        const int ret = startLocked();
+        if (ret != OK) {
+            LOGE("Camera device starts failed.");
+            (void)stopLocked();  // There is error happened, stop all related units.
+            return INVALID_OPERATION;
+        }
+
+        mState = DEVICE_START;
     }
 
-    mState = DEVICE_START;
+#ifdef LINUX_PRIVACY_MODE
+    if (mPrivacyShutter->isConfigured()) {
+        if (mPrivacyShutter->getValue() == 0) {
+            switchToBackup();
+        }
+        mPrivacyShutter->start();
+    }
+#endif
+
     return OK;
 }
 
@@ -1002,6 +1069,72 @@ int CameraDevice::stopLocked() {
     return OK;
 }
 
+#ifdef LINUX_PRIVACY_MODE
+void CameraDevice::switchToNormal() {
+    LOG2("%s", __func__);
+    AutoMutex m(mDeviceLock);
+
+    (void)mBackupProducer->stop();
+
+    mRequestThread->resetSequence();
+
+    mBackupProducer->removeListener(EVENT_ISYS_FRAME, mRequestThread);
+    mBackupProducer->removeListener(EVENT_ISYS_SOF, mRequestThread);
+
+    mScheduler->start();
+    if (mProcessingUnit != nullptr) {
+        mProcessingUnit->setBufferProducer(mProducer);
+    }
+    for (const auto& item : mStreamIdToPortMap) {
+        if (mProcessingUnit != nullptr) {
+            mStreams[item.first]->setBufferProducer(mProcessingUnit);
+        } else {
+            mStreams[item.first]->setBufferProducer(mProducer);
+        }
+    }
+    if (mProcessingUnit != nullptr) {
+        (void)mProcessingUnit->start();
+    }
+
+    (void)mProducer->start();
+
+    // CSI_META_S
+    (void)mCsiMetaDevice->start();
+    // CSI_META_E
+
+    (void)mSofSource->configure();
+    (void)mSofSource->start();
+    m3AControl->start();
+}
+
+void CameraDevice::switchToBackup() {
+    LOG2("%s", __func__);
+    AutoMutex m(mDeviceLock);
+    m3AControl->stop();
+
+    (void)mSofSource->stop();
+
+    // CSI_META_S
+    (void)mCsiMetaDevice->stop();
+    // CSI_META_E
+
+    (void)mProducer->stop();
+    if (mProcessingUnit != nullptr) {
+        mProcessingUnit->stop();
+    }
+    mScheduler->stop();
+    mRequestThread->resetSequence();
+
+    mBackupProducer->registerListener(EVENT_ISYS_SOF, mRequestThread);
+    mBackupProducer->registerListener(EVENT_ISYS_FRAME, mRequestThread);
+    for (const auto& item : mStreamIdToPortMap) {
+        mStreams[item.first]->setBufferProducer(mBackupProducer);
+    }
+
+    (void)mBackupProducer->start();
+}
+#endif
+
 void CameraDevice::handleEvent(EventData eventData) {
     LOG2("%s, event type:%d", __func__, eventData.type);
 
@@ -1061,6 +1194,16 @@ void CameraDevice::handleEvent(EventData eventData) {
             }
             break;
         }
+
+#ifdef LINUX_PRIVACY_MODE
+        case EVENT_INPUT_EVENT:
+            if (eventData.data.inputEvent.value == 0) {
+                switchToBackup();
+            } else {
+                switchToNormal();
+            }
+            break;
+#endif
 
         default:
             LOGE("Not supported event type:%d", eventData.type);

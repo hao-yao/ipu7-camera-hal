@@ -128,6 +128,10 @@ void MediaControl::releaseInstance() {
 
 MediaControl::MediaControl(const char* devName) : mDevName(devName) {
     LOG1("@%s device: %s", __func__, devName);
+// VIRTUAL_CHANNEL_S
+
+    mIsMediaCtlSetup = false;
+// VIRTUAL_CHANNEL_E
 
     int ret = initEntities();
     CheckAndLogError(ret, VOID_VALUE, "Failed to init entities");
@@ -687,14 +691,16 @@ void MediaControl::setMediaMcCtl(int cameraId, vector<McCtl> ctls) {
 
 int MediaControl::setMediaMcLink(vector<McLink> links) {
     for (auto& link : links) {
-        LOG1("setup Link %s [%d:%d] ==> %s [%dx%d] enable %d.", link.srcEntityName.c_str(),
-             link.srcEntity, link.srcPad, link.sinkEntityName.c_str(), link.sinkEntity,
-             link.sinkPad, link.enable);
         int ret =
             setupLink(link.srcEntity, link.srcPad, link.sinkEntity, link.sinkPad, link.enable);
-        CheckAndLogError(ret < 0, ret, "setup Link %s [%d:%d] ==> %s [%dx%d] enable %d failed.",
-                         link.srcEntityName.c_str(), link.srcEntity, link.srcPad,
-                         link.sinkEntityName.c_str(), link.sinkEntity, link.sinkPad, link.enable);
+        if (ret < 0)
+            LOGW("failed to setup Link %s [%d:%d] ==> %s [%d:%d] %s.", link.srcEntityName.c_str(),
+                 link.srcEntity, link.srcPad, link.sinkEntityName.c_str(), link.sinkEntity,
+                 link.sinkPad, link.enable ? "enable" : "disable");
+        else
+            LOG1("succeed to setup Link %s [%d:%d] ==> %s [%d:%d] %s.", link.srcEntityName.c_str(),
+                 link.srcEntity, link.srcPad, link.sinkEntityName.c_str(), link.sinkEntity,
+                 link.sinkPad, link.enable ? "enable" : "disable");
     }
     return OK;
 }
@@ -827,6 +833,12 @@ int MediaControl::setRouting(int cameraId, MediaCtlConf* mc, bool enableRouting)
 
     for (auto& routing : mc->routings) {
         LOG1("<id%d> route entity:%s:", cameraId, routing.first.c_str());
+
+        string subDeviceNodeName;
+        CameraUtils::getSubDeviceName(routing.first.c_str(), subDeviceNodeName);
+        if (subDeviceNodeName.empty()) continue;
+        V4L2Subdevice* subDev = V4l2DeviceFactory::getSubDev(cameraId, subDeviceNodeName);
+
         int num = routing.second.size();
         v4l2_subdev_route* routes = new v4l2_subdev_route[num];
         CheckAndLogError(!routes, NO_MEMORY, "Failed to alloc routes");
@@ -841,9 +853,6 @@ int MediaControl::setRouting(int cameraId, MediaCtlConf* mc, bool enableRouting)
 
             routes[i] = r;
         }
-        string subDeviceNodeName;
-        CameraUtils::getSubDeviceName(routing.first.c_str(), subDeviceNodeName);
-        V4L2Subdevice* subDev = V4l2DeviceFactory::getSubDev(cameraId, subDeviceNodeName);
         int ret = subDev->SetRouting(routes, num);
         delete[] routes;
         CheckAndLogError(ret != 0, ret, "setRouting fail, ret:%d", ret);
@@ -852,11 +861,75 @@ int MediaControl::setRouting(int cameraId, MediaCtlConf* mc, bool enableRouting)
     return OK;
 }
 
+// VIRTUAL_CHANNEL_S
+int MediaControl::setVideoNodeFormat(struct V4L2VideoNode* device, const stream_t* config) {
+    PERF_CAMERA_ATRACE();
+
+    struct v4l2_format v4l2fmt;
+    v4l2fmt.fmt.pix_mp.field = config->field;
+
+    v4l2fmt.fmt.pix.width = config->width;
+    v4l2fmt.fmt.pix.height = config->height;
+    v4l2fmt.fmt.pix.pixelformat = config->format;
+    v4l2fmt.fmt.pix.bytesperline = config->width;
+    v4l2fmt.fmt.pix.sizeimage = 0;
+
+    v4l2fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    V4L2Format tmpbuf{v4l2fmt};
+    int ret = device->SetFormat(tmpbuf);
+    CheckAndLogError(ret != OK, ret, "set v4l2 format failed ret=%d", ret);
+    return ret;
+}
+
+int MediaControl::setVideoNodesFormat(MediaCtlConf* mc, int field) {
+    int ret = OK;
+
+    for (auto& link : mc->links) {
+        if (link.sinkEntity < 0) continue;
+        MediaEntity* entity = getEntityById(link.sinkEntity);
+        CheckAndLogError(!entity, -EINVAL, "@%s, failed to get video entity!", __func__);
+
+        if (entity->info.type == MEDIA_ENT_T_V4L2_VIDEO) {
+            stream_t config;
+
+            config.field = field;
+            config.width = mc->outputWidth;
+            config.height = mc->outputHeight;
+            config.format = mc->format;
+            V4L2VideoNode* device = new V4L2VideoNode(entity->devname);
+            CheckAndLogError(!device, -EINVAL, "@%s %s: failed to create video device!", __func__,
+                             entity->devname);
+            ret = device->Open(O_RDWR);
+            CheckAndLogError(ret != OK, ret, "@%s %s: failed to open video device!", __func__,
+                             entity->devname);
+            ret = setVideoNodeFormat(device, &config);
+            delete device;
+            CheckAndLogError(ret != OK, ret, "@%s %s: set video node format failed ret=%d",
+                             __func__, entity->devname, ret);
+        }
+    }
+
+    return ret;
+}
+
+// VIRTUAL_CHANNEL_E
 int MediaControl::mediaCtlSetup(int cameraId, MediaCtlConf* mc, int width, int height, int field) {
     LOG1("<id%d> %s", cameraId, __func__);
     /* Setup controls in format Configuration */
     setMediaMcCtl(cameraId, mc->ctls);
 
+// VIRTUAL_CHANNEL_S
+    AutoMutex lock(sLock);
+
+    if (!mc->routings.empty()) {
+        if (mIsMediaCtlSetup) {
+            return OK;
+        } else {
+            mIsMediaCtlSetup = true;
+        }
+    }
+
+// VIRTUAL_CHANNEL_E
     int ret = OK;
     // VIRTUAL_CHANNEL_S
     ret = setRouting(cameraId, mc, true);
@@ -876,6 +949,11 @@ int MediaControl::mediaCtlSetup(int cameraId, MediaCtlConf* mc, int width, int h
     ret = setMediaMcLink(mc->links);
     CheckAndLogError(ret != OK, ret, "set MediaCtlConf McLink failed: ret = %d", ret);
 
+// VIRTUAL_CHANNEL_S
+    ret = setVideoNodesFormat(mc, field);
+    CheckAndLogError(ret != OK, ret, "set video nodes format failed: ret = %d", ret);
+
+// VIRTUAL_CHANNEL_E
     // DUMP_ENTITY_TOPOLOGY_S
     dumpEntityTopology();
     // DUMP_ENTITY_TOPOLOGY_E

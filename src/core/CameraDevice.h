@@ -17,6 +17,9 @@
 #pragma once
 #include "AiqUnit.h"
 #include "CameraStream.h"
+#ifdef LINUX_PRIVACY_MODE
+#include "InputEventMonitor.h"
+#endif
 #include "IProcessingUnitFactory.h"
 #include "LensHw.h"
 #include "RequestThread.h"
@@ -209,6 +212,10 @@ class CameraDevice : public EventListener {
 
     int startLocked();
     int stopLocked();
+#ifdef LINUX_PRIVACY_MODE
+    void switchToNormal();
+    void switchToBackup();
+#endif
 
  private:
     enum {
@@ -228,6 +235,10 @@ class CameraDevice : public EventListener {
     std::map<int, uuid> mStreamIdToPortMap;
     std::vector<int> mSortedStreamIds;  // Used to save sorted stream ids with descending order.
     StreamSource* mProducer;
+#ifdef LINUX_PRIVACY_MODE
+    StreamSource* mBackupProducer;
+    InputEventMonitor* mPrivacyShutter;
+#endif
 
     IProcessingUnit* mProcessingUnit;
 

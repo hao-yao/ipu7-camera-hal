@@ -75,7 +75,7 @@ uint32_t GraphResolutionConfiguratorHelper::getRunKernelUuidOfOutput(HwSink hwSi
                 case 100044:    // Bayer_NoPdaf_NoDvs_WithTnr_WithNntm_WithImv
                 case 100050:    // Bayer_NoPdaf_WithRemosaic_NoDvs_WithTnr
                 case 100051:    // Bayer_NoPdaf_WithB2b_WithNntm_WithTnr
-                    return 33331; // imv
+                    return 23692; // imv
             }
             break;
         case HwSink::ProcessedSecondarySink:    return 19706; // sw_scaler
@@ -110,7 +110,7 @@ StaticGraphStatus GraphResolutionConfiguratorHelper::getRunKernelUuidForResHisto
     kernelUuids.push_back(5637);  // gdc7_1
     kernelUuids.push_back(19706);  // sw_scaler
     kernelUuids.push_back(46539);  // nntm_1_0
-    kernelUuids.push_back(33331);  // imv
+    kernelUuids.push_back(23692);  // imv
     return StaticGraphStatus::SG_OK;
 }
 

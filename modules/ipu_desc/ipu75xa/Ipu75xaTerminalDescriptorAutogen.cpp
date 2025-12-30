@@ -555,7 +555,7 @@ TerminalDescriptor SW_IMVTerminalDesc[] =
         PAC_BUFFER_TYPE_NONE,
         TERMINAL_BUFFER_TYPE_DATA,
         TERMINAL_DIR_IN,
-        33331, // imv
+        23692, // imv
     },
     {
         SW_IMV_TERMINAL_CONNECT_OUTPUT_1,

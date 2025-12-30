@@ -18,6 +18,7 @@ set(CORE_SRCS
     ${CORE_DIR}/BufferQueue.cpp
     ${CORE_DIR}/CameraBuffer.cpp
     ${CORE_DIR}/CameraEvent.cpp
+    ${CORE_DIR}/InputEventMonitor.cpp
     ${CORE_DIR}/LensHw.cpp
     ${CORE_DIR}/SensorHwCtrl.cpp
     ${CORE_DIR}/SofSource.cpp

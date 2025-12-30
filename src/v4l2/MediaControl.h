@@ -301,6 +301,10 @@ class MediaControl {
     int setMediaMcLink(std::vector<McLink> links);
     int setFormat(int cameraId, const McFormat* format, int targetWidth, int targetHeight,
                   int field);
+// VIRTUAL_CHANNEL_S
+    int setVideoNodeFormat(struct V4L2VideoNode *device, const stream_t* format);
+    int setVideoNodesFormat(MediaCtlConf* mc, int field);
+// VIRTUAL_CHANNEL_E
     int setSelection(int cameraId, const McFormat* format, int targetWidth, int targetHeight);
     int setRouting(int cameraId, MediaCtlConf* mc, bool enableRouting);
     /* Dump functions */
@@ -322,6 +326,10 @@ class MediaControl {
 
     static MediaControl* sInstance;
     static Mutex sLock;
+// VIRTUAL_CHANNEL_S
+
+    bool mIsMediaCtlSetup;
+// VIRTUAL_CHANNEL_E
 };
 
 }  // namespace icamera
