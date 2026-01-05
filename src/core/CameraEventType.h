@@ -39,6 +39,7 @@ enum EventType {
     EVENT_STAGE_BUF_READY,
     EVENT_PSYS_REQUEST_BUF_READY,
     EVENT_REQUEST_METADATA_READY,
+    EVENT_INPUT_EVENT,
     EVENT_TYPE_MAX,
 };
 
@@ -88,6 +89,12 @@ struct EventStageBufReady {
     int64_t sequence;
 };
 
+struct EventInputEvent {
+    int32_t type;
+    int32_t code;
+    int32_t value;
+};
+
 struct EventData {
     EventData() : type(EVENT_ISYS_SOF), pipeType(-1) { CLEAR(data); }
 
@@ -104,6 +111,7 @@ struct EventData {
         EventFrameAvailable frameDone;
         EventRequestReady requestReady;  // use for returning metadata and shutter event
         EventStageBufReady stageBufReady;
+        EventInputEvent inputEvent;
     } data;
 };
 

@@ -73,6 +73,23 @@ void RequestThread::requestStop() {
     Thread::wait();
 }
 
+#ifdef LINUX_PRIVACY_MODE
+void RequestThread::resetSequence() {
+    AutoMutex l(mPendingReqLock);
+    mLastCcaId = -1;
+    mLastEffectSeq = -1;
+    mLastAppliedSeq = -1;
+    mLastSofSeq = -1;
+    mBlockRequest = false;
+    for (size_t i = 0; i < mPendingRequests.size(); ++i) {
+        auto &req = mPendingRequests[i];
+        req.mBuffer[0]->sequence = i;
+        req.mBuffer[0]->frameNumber = i;
+    }
+    LOG2("%s: reset processing state", __func__);
+}
+#endif
+
 void RequestThread::clearRequests() {
     LOG1("%s", __func__);
 

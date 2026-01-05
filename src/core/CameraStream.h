@@ -15,6 +15,8 @@
  */
 
 #pragma once
+#include <algorithm>
+
 #include "ParamDataType.h"
 #include "BufferQueue.h"
 #include "CameraBuffer.h"
@@ -73,6 +75,9 @@ class CameraStream : public BufferConsumer, public EventSource {
      * \brief The notify when polled or processed one frame buffer
      */
     virtual int onBufferAvailable(uuid port, const std::shared_ptr<CameraBuffer>& camBuffer);
+#ifdef LINUX_PRIVACY_MODE
+    virtual void setBufferProducer(BufferProducer* producer);
+#endif
 
  private:
     std::shared_ptr<CameraBuffer> userBufferToCameraBuffer(camera_buffer_t* ubuffer);
@@ -80,13 +85,21 @@ class CameraStream : public BufferConsumer, public EventSource {
  protected:
     int mCameraId;
     int mStreamId;
-    uuid mPort;
 
     // Guard for member mInputBuffersPool and mBufferInProcessing
     Mutex mBufferPoolLock;
     CameraBufVector mInputBuffersPool;
+
+#ifdef LINUX_PRIVACY_MODE
+    // Container to track buffers currently being processed by this CameraStream
+    // These buffers are queued via qbuf and removed when onFrameAvailable is called
+    CameraBufVector mBufferInProcessing;
+#else
     // How many user buffers are currently processing underhood.
     int mBufferInProcessing;
+#endif
+
+    uuid mPort;
 };
 
 }  // namespace icamera

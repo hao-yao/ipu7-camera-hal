@@ -67,6 +67,9 @@ enum class GraphConfigurationKeyAttributes : uint32_t
     VaiActive = 0x00000100,
     StillsModeCpHdr = 0x00000200,
     ImvDewarpActive = 0x00000400,
+    BroadcastActive = 0x00000800,
+    PortraitActive = 0x00001000,
+    DocScanActive = 0x00002000,
 };
 
 struct GraphConfigurationKey {

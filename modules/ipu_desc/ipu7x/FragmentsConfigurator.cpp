@@ -97,7 +97,13 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments(std::vector<Smur
 
             case GraphResolutionConfiguratorKernelRole::Output:
             {
-                res = configFragmentsOutput(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments);
+                res = configFragmentsOutput(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments, false);
+                break;
+            }
+
+            case GraphResolutionConfiguratorKernelRole::TnrOutput:
+            {
+                res = configFragmentsOutput(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments, true);
                 break;
             }
 
@@ -116,7 +122,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configureFragments(std::vector<Smur
 
             case GraphResolutionConfiguratorKernelRole::Smurf:
             {
-                res = configFragmentsSmurf(runKernel, kernelFragments, prevKernelUuid, prevKernelFragments, smurfKernels);
+                res = configFragmentsSmurf(runKernel, kernelFragments, prevKernelFragments, smurfKernels);
                 break;
             }
 
@@ -517,7 +523,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsUpscaler(StaticGraph
 }
 
 StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsOutput(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments,
-    uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments)
+    uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments, bool isTnr)
 {
     if (kernelFragments == nullptr || prevKernelFragments == nullptr)
     {
@@ -531,7 +537,8 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsOutput(StaticGraphRu
 
     for (int16_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
     {
-        if (_node->fragmentVanishStatus[stripe] == VanishOption::Full)
+        if ((_node->fragmentVanishStatus[stripe] == VanishOption::Full) ||
+            (isTnr && _node->fragmentVanishStatus[stripe] == VanishOption::AfterTnr))
         {
             // Not vanished
             leftNonVanishedStripe = stripe;
@@ -541,7 +548,8 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsOutput(StaticGraphRu
 
     for (int16_t stripe = _node->numberOfFragments - 1; stripe >= 0; stripe--)
     {
-        if (_node->fragmentVanishStatus[stripe] == VanishOption::Full)
+        if ((_node->fragmentVanishStatus[stripe] == VanishOption::Full) ||
+            (isTnr && _node->fragmentVanishStatus[stripe] == VanishOption::AfterTnr))
         {
             // Not vanished
             rightNonVanishedStripe = stripe;
@@ -807,14 +815,22 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsTnrFeeder(StaticGrap
 }
 
 StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurf(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments,
-    uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments, std::vector<SmurfKernelInfo*>& smurfKernels)
+    StaticGraphFragmentDesc* prevKernelFragments, std::vector<SmurfKernelInfo*>& smurfKernels)
 {
     if (kernelFragments == nullptr || prevKernelFragments == nullptr)
     {
         return StaticGraphStatus::SG_ERROR;
     }
 
-    copyFragments(runKernel, prevKernelFragments, prevKernelUuid, kernelFragments);
+    auto resInfo = runKernel->resolution_info;
+    if (resInfo->input_width == 0 || resInfo->input_height == 0 ||
+        resInfo->output_width == 0 || resInfo->output_height == 0)
+    {
+        // Smurf not in use
+        return StaticGraphStatus::SG_OK;
+    }
+
+    _outputStartX[runKernel->kernel_uuid] = std::vector<uint16_t>(_node->numberOfFragments, 0);
 
     // Find the device that is fed by this smurf (the second in the pair)
     StaticGraphRunKernel* deviceRunKernel = nullptr;
@@ -851,6 +867,10 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurf(StaticGraphRun
         return StaticGraphStatus::SG_ERROR;
     }
 
+    double newScaleFactorH = (double)(resInfo->output_width + resInfo->output_crop.left + resInfo->output_crop.right) / (resInfo->input_width - resInfo->input_crop.left - resInfo->input_crop.right);
+    double newScaleFactorV = (double)(resInfo->output_height + resInfo->output_crop.top + resInfo->output_crop.bottom) / (resInfo->input_height - resInfo->input_crop.top - resInfo->input_crop.bottom);
+    double newScaleFactor = std::max(newScaleFactorH, newScaleFactorV);
+
     for (int8_t stripe = 0; stripe < _node->GetNumberOfFragments(); stripe++)
     {
         // If device is vanished, vanish the smurf too
@@ -863,6 +883,16 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurf(StaticGraphRun
 
         // Smurf output is the same as the device input
         kernelFragments[stripe].fragmentOutputWidth = deviceFragments[stripe].fragmentInputWidth;
+
+        // Get the start X that will we actually have (since feeder can only crop even numbers) prevKernelFragments is the feeder
+        uint32_t requiredOutputStartX = deviceFragments[stripe].fragmentStartX + resInfo->output_crop.left;
+        uint32_t actualOutputStartX = static_cast<uint32_t>(ceil(newScaleFactor * prevKernelFragments[stripe].fragmentStartX / 2)) * 2;
+
+        if (actualOutputStartX > (uint32_t)resInfo->output_crop.left && (requiredOutputStartX > actualOutputStartX))
+        {
+            // This is actually output crop (PAL knows :)
+            kernelFragments[stripe].upscalerFragDesc.fragmentInputCropLeft = static_cast<uint16_t>(requiredOutputStartX - actualOutputStartX);
+        }
     }
 
     return StaticGraphStatus::SG_OK;
@@ -879,7 +909,7 @@ StaticGraphStatus Ipu8FragmentsConfigurator::configFragmentsSmurfFeeder(StaticGr
 
     for (uint8_t stripe = 0; stripe < _node->numberOfFragments; stripe++)
     {
-        _outputStartX[runKernel->kernel_uuid][stripe] = static_cast<uint16_t>(kernelFragments[stripe].fragmentStartX - runKernel->resolution_info->input_crop.left);
+        _outputStartX[runKernel->kernel_uuid][stripe] = kernelFragments[stripe].fragmentStartX;
     }
 
     return StaticGraphStatus::SG_OK;

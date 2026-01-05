@@ -672,4 +672,28 @@ void FileSourceFromDir::fillFrameBuffer(void* addr, size_t bufferSize, uint32_t 
     file.read(reinterpret_cast<char*>(addr), std::min(fileSize, bufferSize));
 }
 
+int DummyImageSource::init() {
+    int ret = FileSource::init();
+
+    mInjectedFile = mCameraConfigPath + "test.yuv";
+    mInjectionWay = USING_FRAME_FILE;
+
+    return ret;
+}
+
+int DummyImageSource::configure(const std::map<uuid, stream_t>& outputFrames) {
+    int ret = FileSource::configure(outputFrames);
+
+    if (!outputFrames.empty()) {
+        const stream_t& stream = outputFrames.begin()->second;
+        std::string format = CameraUtils::format2string(stream.format);
+        std::transform(format.begin(), format.end(), format.begin(),
+                       [](unsigned char c) { return std::tolower(c); });
+        mInjectedFile = mCameraConfigPath + "dummy_" + std::to_string(stream.width) + "x" +
+                        std::to_string(stream.height) + "." + format;
+    }
+
+    return ret;
+}
+
 }  // end of namespace icamera

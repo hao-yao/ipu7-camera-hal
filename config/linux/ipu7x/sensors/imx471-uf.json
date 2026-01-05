@@ -207,7 +207,9 @@
         "skipFrameV4L2Error": true,
         "isISYSCompression": false,
         "isPSACompression": false,
-        "usingMockPSys": false
+        "usingMockPSys": false,
+        "privacyShutterEventType": 5,
+        "privacyShutterEventCode": 9
       }
     ]
   }

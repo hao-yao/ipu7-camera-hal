@@ -79,6 +79,7 @@ enum class GraphResolutionConfiguratorKernelRole : uint8_t
     EspaCropper,
     NonRcb,
     Output,
+    TnrOutput,
     TnrScaler,
     TnrFeederFull,
     TnrFeederSmall,
@@ -212,7 +213,7 @@ private:
     StaticGraphStatus updateRunKernelOfScalers(ResolutionRoi& roi);
 
     StaticGraphStatus updateRunKernelDownScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, uint32_t& outputWidth, uint32_t& outputHeight);
-    StaticGraphStatus updateRunKernelUpScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelResCrop& cropperKernelCrop, uint32_t outputWidth, uint32_t outputHeight);
+    StaticGraphStatus updateRunKernelUpScaler(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelResCrop& cropperKernelCrop, uint32_t inputWidth, uint32_t inputHeight, uint32_t outputWidth, uint32_t outputHeight);
     StaticGraphStatus updateRunKernelCropper(StaticGraphRunKernel* runKernel, ResolutionRoi& roi, StaticGraphKernelRes* downscalerResInfo, uint32_t outputWidth, uint32_t outputHeight);
     StaticGraphStatus updateRunKernelSmurf(SmurfKernelInfo* smurfInfo);
 
@@ -223,7 +224,7 @@ private:
     uint32_t _upscalerStepH = 1;
 
     StaticGraphKernelResCrop _originalCropOfDownScaler = { 0,0,0,0 };
-    StaticGraphKernelResCrop _originalCropOfEspaCropper = { 0,0,0,0 };
+    StaticGraphKernelResCrop _originalCropOfUpscaler = { 0,0,0,0 };
     StaticGraphKernelResCrop _originalCropOfOutput = { 0,0,0,0 };
     StaticGraphKernelResCrop _originaHistoryOfOutput = { 0,0,0,0 };
 

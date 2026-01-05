@@ -63,6 +63,29 @@ void CameraSensorsParser::parseMediaCtlConfigSection(const Json::Value& node) {
             mc.format = CameraUtils::string2PixelCode(cfg["format"].asString().c_str());
         }
 
+// VIRTUAL_CHANNEL_S
+        if (cfg.isMember("sensorCommonConfig")) {
+            if (mc.mcId == -1) {
+                LOGW("%s, pls place sensorCommonConfig after id in MediaCtlConfig of %s!", __func__,
+                     mCurCam->sensorName.c_str());
+            } else {
+                for (auto it = mStaticCfg->mCameras.rbegin(); it != mStaticCfg->mCameras.rend();
+                     ++it) {
+                    if (!it->sensorName.compare(cfg["sensorCommonConfig"].asString())) {
+                        for (auto& mc_ : it->mMediaCtlConfs) {
+                            if (mc_.mcId == mc.mcId) {
+                                mc.formats.insert(mc.formats.end(), mc_.formats.begin(),
+                                                  mc_.formats.end());
+                                mc.links.insert(mc.links.end(), mc_.links.begin(), mc_.links.end());
+                                mc.routings.insert(mc_.routings.begin(), mc_.routings.end());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+// VIRTUAL_CHANNEL_E
         if (cfg.isMember("formats")) {
             parseMediaCtlConfigFormatsObject(cfg["formats"], &mc);
         }
@@ -898,6 +921,14 @@ void CameraSensorsParser::parseSensorSection(const Json::Value& node) {
     if (node.isMember("usePSysProcessor")) {
         mCurCam->mUsePSysProcessor = node["usePSysProcessor"].asBool();
     }
+#ifdef LINUX_PRIVACY_MODE
+    if (node.isMember("privacyShutterEventType")) {
+        mCurCam->mPrivacyShutterEventType = node["privacyShutterEventType"].asInt();
+    }
+    if (node.isMember("privacyShutterEventCode")) {
+        mCurCam->mPrivacyShutterEventCode = node["privacyShutterEventCode"].asInt();
+    }
+#endif
 }
 
 void CameraSensorsParser::resolveCsiPortAndI2CBus() {

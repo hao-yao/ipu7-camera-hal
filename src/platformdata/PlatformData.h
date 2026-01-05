@@ -246,6 +246,10 @@ class PlatformData {
                       mRemoveCacheFlushOutputBuffer(false),
                       mPLCEnable(false),
                       mStillOnlyPipe(false),
+#ifdef LINUX_PRIVACY_MODE
+                      mPrivacyShutterEventType(-1),
+                      mPrivacyShutterEventCode(-1),
+#endif
                       mUsePSysProcessor(true) {
             }
 
@@ -355,6 +359,10 @@ class PlatformData {
             bool mRemoveCacheFlushOutputBuffer;
             bool mPLCEnable;
             bool mStillOnlyPipe;
+#ifdef LINUX_PRIVACY_MODE
+            int mPrivacyShutterEventType;
+            int mPrivacyShutterEventCode;
+#endif
             bool mUsePSysProcessor;
 
             StaticMetadata mStaticMetadata;
@@ -1502,6 +1510,11 @@ class PlatformData {
      * \return true if use IPU psys processor.
      */
     static bool isUsePSysProcessor(int cameraId);
+
+#ifdef LINUX_PRIVACY_MODE
+    static int getPrivacyShutterEventType(int cameraId);
+    static int getPrivacyShutterEventCode(int cameraId);
+#endif
 
 };
 } /* namespace icamera */

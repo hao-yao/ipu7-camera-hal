@@ -18,6 +18,7 @@
 
 #include "StreamSource.h"
 #include "iutils/Thread.h"
+#include "PlatformData.h"
 
 namespace icamera {
 
@@ -67,6 +68,18 @@ class FileSource : public StreamSource {
     void notifyFrame(std::map<uuid, std::shared_ptr<CameraBuffer>> buffers);
     void notifySofEvent();
 
+ protected:
+    float mFps;
+    std::string mInjectedFile;  // The injected file can be a actual frame or a XML config file.
+    enum {
+        USING_FRAME_FILE =
+            0,  // If mInjectedFile is a frame file name, it means we're using frame file.
+        USING_CONFIG_FILE,  // If mInjectedFile ends with ".xml", it means we're using config file.
+        USING_INJECTION_PATH,  // If mInjectedFile is a directory, it means we're using injection
+                               // path.
+        UNKNOWN_INJECTED_WAY   // Error way
+    } mInjectionWay;
+
  private:
     class ProduceThread : public Thread {
         FileSource* mFileSrc;
@@ -88,19 +101,7 @@ class FileSource : public StreamSource {
     ProduceThread* mProduceThread;
     int mCameraId;
     bool mExitPending;
-
-    float mFps;
     int64_t mSequence;
-    std::string mInjectedFile;  // The injected file can be a actual frame or a XML config file.
-    enum {
-        USING_FRAME_FILE =
-            0,  // If mInjectedFile is a frame file name, it means we're using frame file.
-        USING_CONFIG_FILE,  // If mInjectedFile ends with ".xml", it means we're using config file.
-        USING_INJECTION_PATH,  // If mInjectedFile is a directory, it means we're using injection
-                               // path.
-        UNKNOWN_INJECTED_WAY   // Error way
-    } mInjectionWay;
-
     stream_t mStreamConfig;
     std::set<uuid> mOutputPorts;
 
@@ -180,6 +181,20 @@ class FileSourceFromDir {
  private:
     std::string mInjectionPath;
     std::vector<std::string> mInjectionFiles;
+};
+
+class DummyImageSource : public FileSource {
+ public:
+    explicit DummyImageSource(int cameraId) :
+        FileSource(cameraId),
+        mCameraConfigPath(PlatformData::getCameraCfgPath()) {}
+    ~DummyImageSource() {}
+
+    virtual int init() override;
+    virtual int configure(const std::map<uuid, stream_t>& outputFrames) override;
+
+ public:
+    const std::string mCameraConfigPath;
 };
 
 }  // namespace icamera

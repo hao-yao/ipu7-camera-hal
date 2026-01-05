@@ -31,8 +31,10 @@ namespace icamera {
 CameraStream::CameraStream(int cameraId, int streamId, const stream_t& stream)
         : mCameraId(cameraId),
           mStreamId(streamId),
-          mPort(USER_DEFAULT_PORT_UID),
-          mBufferInProcessing(0) {
+#ifndef LINUX_PRIVACY_MODE
+          mBufferInProcessing(0),
+#endif
+          mPort(USER_DEFAULT_PORT_UID) {
     LOG2("<id%d>@%s: streamid:%d automation checkpoint: %dx%d, format: %s", mCameraId, __func__,
          streamId, stream.width, CameraUtils::getInterlaceHeight(stream.field, stream.height),
          CameraUtils::pixelCode2String(stream.format));
@@ -54,7 +56,11 @@ int CameraStream::stop() {
     }
 
     AutoMutex poolLock(mBufferPoolLock);
+#ifdef LINUX_PRIVACY_MODE
+    mBufferInProcessing.clear();
+#else
     mBufferInProcessing = 0;
+#endif
     mInputBuffersPool.clear();
 
     return OK;
@@ -138,11 +144,51 @@ int CameraStream::qbuf(camera_buffer_t* ubuffer, int64_t sequence, bool addExtra
         ret = mBufferProducer->qbuf(mPort, camBuffer);
         if (ret == OK) {
             AutoMutex l(mBufferPoolLock);
+#ifdef LINUX_PRIVACY_MODE
+            // Add buffer to processing container
+            mBufferInProcessing.push_back(camBuffer);
+#else
             mBufferInProcessing++;
+#endif
         }
     }
     return ret;
 }
+
+#ifdef LINUX_PRIVACY_MODE
+// This function is called in stop status, no lock
+void CameraStream::setBufferProducer(BufferProducer* producer) {
+    BufferProducer* oldProducer = mBufferProducer;
+
+    // If we had a previous producer, remove ourselves as a listener
+    if (oldProducer != nullptr) {
+        oldProducer->removeFrameAvailableListener(this);
+    }
+    
+    mBufferProducer = producer;
+
+    if (producer != nullptr) {
+        producer->addFrameAvailableListener(this);
+        
+        // If we had a previous producer and there are buffers being processed,
+        // transfer them to the new producer
+        if (oldProducer != nullptr) {
+            AutoMutex l(mBufferPoolLock);
+            // Queue all processing buffers to the new producer
+            for (auto& buffer : mBufferInProcessing) {
+                int ret = producer->qbuf(mPort, buffer);
+                if (ret == OK) {
+                    LOG2("<id%d>@%s: Transferred buffer %p to new producer", 
+                         mCameraId, __func__, buffer.get());
+                } else {
+                    LOGE("<id%d>@%s: Failed to transfer buffer %p to new producer, ret=%d",
+                         mCameraId, __func__, buffer.get(), ret);
+                }
+            }
+        }
+    }
+}
+#endif
 
 int CameraStream::onBufferAvailable(uuid port, const shared_ptr<CameraBuffer>& camBuffer) {
     // Ignore if the buffer is not for this stream.
@@ -176,10 +222,20 @@ int CameraStream::onBufferAvailable(uuid port, const shared_ptr<CameraBuffer>& c
                               camBuffer->getVirtualChannel());
 
     AutoMutex l(mBufferPoolLock);
+#ifdef LINUX_PRIVACY_MODE
+    // Remove buffer from processing container
+    auto it = std::find(mBufferInProcessing.begin(), mBufferInProcessing.end(), camBuffer);
+    if (it != mBufferInProcessing.end()) {
+        mBufferInProcessing.erase(it);
+    }
+
+    LOG2("%s, buffer in processing: %zu for stream: %p", __func__, mBufferInProcessing.size(), this);
+#else
     if (mBufferInProcessing > 0) {
         mBufferInProcessing--;
     }
     LOG2("%s, buffer in processing: %d for stream: %p", __func__, mBufferInProcessing, this);
+#endif
 
     return OK;
 }

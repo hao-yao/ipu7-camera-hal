@@ -30,7 +30,7 @@
 #include "IspSettings.h"
 
 #ifdef IPA_SANDBOXING
-#include "CcaClient.h"
+#include "IntelCcaWorker.h"
 #else
 #include "modules/algowrapper/IntelCca.h"
 #endif

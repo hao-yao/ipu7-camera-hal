@@ -43,10 +43,10 @@ private:
     StaticGraphStatus configFragmentsDownscaler(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
     StaticGraphStatus configFragmentsCropper(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
     StaticGraphStatus configFragmentsUpscaler(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
-    StaticGraphStatus configFragmentsOutput(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
+    StaticGraphStatus configFragmentsOutput(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments, bool isTnr);
     StaticGraphStatus configFragmentsTnrScaler(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments);
     StaticGraphStatus configFragmentsTnrFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, GraphResolutionConfiguratorKernelRole kernelRole);
-    StaticGraphStatus configFragmentsSmurf(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, uint32_t prevKernelUuid, StaticGraphFragmentDesc* prevKernelFragments,
+    StaticGraphStatus configFragmentsSmurf(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments, StaticGraphFragmentDesc* prevKernelFragments,
         std::vector<SmurfKernelInfo*>& smurfKernels);
     StaticGraphStatus configFragmentsSmurfFeeder(StaticGraphRunKernel* runKernel, StaticGraphFragmentDesc* kernelFragments);
 
