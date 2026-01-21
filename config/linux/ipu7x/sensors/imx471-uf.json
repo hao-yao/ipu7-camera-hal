@@ -46,6 +46,14 @@
                 "sinkName": "Intel IPU7 ISYS Capture $CAP_N", "sinkPad": 0, "enable": true
               }
             ],
+	    "control": [
+              {
+                "name": "imx471 $I2CBUS", "ctrlId": "V4L2_CID_HFLIP", "value": 0
+              },
+              {
+                "name": "imx471 $I2CBUS", "ctrlId": "V4L2_CID_VFLIP", "value": 1
+              },
+	    ],
             "videonode": [
               {
                 "name": "Intel IPU7 ISYS Capture $CAP_N", "videoNodeType": "VIDEO_GENERIC"
