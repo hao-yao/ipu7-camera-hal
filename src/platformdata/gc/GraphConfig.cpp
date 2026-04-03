@@ -1011,13 +1011,10 @@ status_t GraphConfig::pipelineGetConnections(int32_t streamId,
         if (!conn.portFormatSettings.enabled) {
             continue;
         }
-        if (conn.stream != nullptr) {
-            checkAndUpdatePostConnection(streamId, &conn, &postVector, mGPUStageInfos);
-        }
+        checkAndUpdatePostConnection(streamId, &conn, &postVector, mGPUStageInfos);
         IGraphType::PipelineConnection* connPtr =
             postVector.size() > 0 ? &(postVector[postVector.size() - 1]) : &conn;
-        if (connPtr->stream)
-            checkAndUpdatePostConnection(streamId, connPtr, &postVector, mPostStageInfos);
+        checkAndUpdatePostConnection(streamId, connPtr, &postVector, mPostStageInfos);
     }
     confVector->insert(confVector->end(), postVector.begin(), postVector.end());
     LOG3("%s dump for stream %d ++", __func__, streamId);
@@ -1030,6 +1027,10 @@ void GraphConfig::checkAndUpdatePostConnection(int32_t streamId,
                                                IGraphType::PipelineConnection* conn,
                                                vector<IGraphType::PipelineConnection>* postVector,
                                                std::map<int32_t, PostStageInfo>& postStageInfos) {
+    if (!conn || !conn->stream || !postVector) {
+        return;
+    }
+
     int32_t useStreamId = conn->stream->streamId();
 
     if (postStageInfos.find(useStreamId) == postStageInfos.end()) {

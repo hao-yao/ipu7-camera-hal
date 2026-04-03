@@ -48,8 +48,8 @@ typedef ia_rectangle StaticGraphKernelResCrop;
 typedef ia_isp_bxt_resolution_info StaticGraphKernelRes;
 typedef ia_isp_bxt_bpp_info_t StaticGraphCompKernelBpp;
 typedef ia_isp_bxt_run_kernels StaticGraphRunKernel;
-typedef ia_pal_system_api_io_buffer_1_4_t StaticGraphKernelSystemApiIoBuffer1_4;
-typedef ia_pal_system_api_b2i_ds_1_1_t StaticGraphKernelSystemApiB2iDs1_1;
+typedef ia_pal_system_api_io_buffer_1_4_t StaticGraphKernelSystemApiIoBuffer;
+typedef ia_pal_system_api_b2i_ds_1_1_t StaticGraphKernelSystemApiB2iDs;
 #endif
 
 #ifdef STATIC_GRAPH_LOG
@@ -101,6 +101,7 @@ enum class HwSink : uint8_t
     GmvMatchOutSink,
     ProcessedMainSink,
     CvOutputSink,
+    SegnetSecondarySink,
     ProcessedSecondarySink,
     PdafOutSink,
     AwbSveOutSink,
@@ -155,14 +156,16 @@ struct StaticGraphKernelRes {
 
 // ia_pal_system_api_io_buffer_1_4_t;
 // We add only the fields that are used by tests
-struct StaticGraphKernelSystemApiIoBuffer1_4 {
+struct StaticGraphKernelSystemApiIoBuffer {
     uint32_t x_output_offset_per_stripe[4];
     uint32_t plane_start_address_per_stripe[12];
+    uint8_t component_precision;
 };
 
 // ia_pal_system_api_b2i_ds_1_1_t;
-struct StaticGraphKernelSystemApiB2iDs1_1 {
+struct StaticGraphKernelSystemApiB2iDs {
     uint8_t is_striping;
+    int32_t scaling_ratio;
 };
 
 #endif
@@ -222,6 +225,21 @@ struct VirtualSinkMapping {
     uint8_t rawCv = 0;
     uint8_t videoIr = 0;
     uint8_t previewIr = 0;
+};
+
+struct RgbsGridInfo {
+    int32_t imageWidth = 0;
+    int32_t imageHeight = 0;
+    int32_t rgbsGridXStartOffset = 0;
+    int32_t rgbsGridYStartOffset = 0;
+    int32_t rgbsGridXSize = 0;
+    int32_t rgbsGridYSize = 0;
+    int32_t rgbsGridWidth = 0;
+    int32_t rgbsGridHeight = 0;
+};
+
+struct StaticGraphConfigurationInformation {
+    RgbsGridInfo rgbsGridInfo;
 };
 
 struct SystemApiRecordHeader {
@@ -316,6 +334,7 @@ enum class GraphElementType : uint8_t {
     GmvMatchOut,
     ProcessedMain,
     CvOutput,
+    SegnetSecondary,
     ProcessedSecondary,
     PdafOut,
     AwbSveOut,

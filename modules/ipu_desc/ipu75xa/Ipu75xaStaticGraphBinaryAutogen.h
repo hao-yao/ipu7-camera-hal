@@ -70,6 +70,7 @@ enum class GraphConfigurationKeyAttributes : uint32_t
     DocScan = 0x00000400,
     StillsModeCpHdr = 0x00000800,
     B2bActive = 0x00001000,
+    AirActive = 0x00002000,
 };
 
 struct GraphConfigurationKey {
@@ -94,11 +95,31 @@ struct GraphConfigurationHeader {
     uint32_t graphHashCode = 0;
 };
 
+struct GSFTimeStamp
+{
+    uint16_t year = 0;
+    uint16_t month = 0;
+    uint16_t day = 0;
+    uint16_t hour = 0;
+    uint16_t minute = 0;
+    uint16_t second = 0;
+};
+
+struct SysToolVersion
+{
+    uint16_t year = 0;
+    uint16_t workWeek = 0;
+    uint16_t day = 0;
+    uint16_t patchVersion = 0;
+};
+
 struct BinaryHeader {
     uint32_t sapAttributes = 0;
     uint32_t binaryCommonHashCode = 0;
     uint32_t numberOfResolutions = 0;
     uint32_t numberOfSensorModes = 0;
+    GSFTimeStamp gsfTimeStamp;
+    SysToolVersion sysToolVersion;
 };
 
 struct ZoomKeyResolution

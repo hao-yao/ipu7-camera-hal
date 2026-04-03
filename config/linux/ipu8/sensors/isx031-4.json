@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2026 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
   "CameraSettings": {
     "Sensor": [
       {
-        "name": "isx031-3",
+        "name": "isx031-4",
         "description": "isx031 as sensor.",
         "vcCount": 4,
-        "vcId": 2,
+        "vcId": 3,
         "vcGroupId": 0,
         "MediaCtlConfig": [
           {
@@ -32,13 +32,13 @@
             "sensorCommonConfig": "isx031-1",
             "videonode": [
               {
-                "name": "Intel IPU7 ISYS Capture 2", "videoNodeType": "VIDEO_GENERIC"
+                "name": "Intel IPU7 ISYS Capture 3", "videoNodeType": "VIDEO_GENERIC"
               },
               {
                 "name": "Intel IPU7 CSI2 0", "videoNodeType": "VIDEO_ISYS_RECEIVER"
               },
               {
-                "name": "isx031 c-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
+                "name": "isx031 d-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
               }
             ]
           },
@@ -50,13 +50,13 @@
             "sensorCommonConfig": "isx031-1",
             "videonode": [
               {
-                "name": "Intel IPU7 ISYS Capture 2", "videoNodeType": "VIDEO_GENERIC"
+                "name": "Intel IPU7 ISYS Capture 3", "videoNodeType": "VIDEO_GENERIC"
               },
               {
                 "name": "Intel IPU7 CSI2 0", "videoNodeType": "VIDEO_ISYS_RECEIVER"
               },
               {
-                "name": "isx031 c-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
+                "name": "isx031 d-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
               }
             ]
           },
@@ -68,13 +68,13 @@
             "sensorCommonConfig": "isx031-1",
             "videonode": [
               {
-                "name": "Intel IPU7 ISYS Capture 2", "videoNodeType": "VIDEO_GENERIC"
+                "name": "Intel IPU7 ISYS Capture 3", "videoNodeType": "VIDEO_GENERIC"
               },
               {
                 "name": "Intel IPU7 CSI2 0", "videoNodeType": "VIDEO_ISYS_RECEIVER"
               },
               {
-                "name": "isx031 c-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
+                "name": "isx031 d-0", "videoNodeType": "VIDEO_PIXEL_ARRAY"
               }
             ]
           }

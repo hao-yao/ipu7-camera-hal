@@ -65,12 +65,32 @@ typedef enum
 
 }DataRangePins;
 
+typedef struct GSFTimeStamp {
+
+    uint16_t year;
+    uint16_t month;
+    uint16_t day;
+    uint16_t hour;
+    uint16_t minute;
+    uint16_t second;
+} GSFTimeStamp;
+
+typedef struct SysToolVersion {
+
+    uint16_t year;
+    uint16_t workWeek;
+    uint16_t day;
+    uint16_t patchVersion;
+} SysToolVersion;
+
 typedef struct {
 
     uint32_t sapAttributes;
     uint32_t binaryCommonHashCode;
     uint32_t numberOfResolutions;
     uint32_t numberOfSensorModes;
+    GSFTimeStamp gsfTimeStamp;
+    SysToolVersion sysToolVersion;
 
 }BinaryHeader;
 
@@ -96,48 +116,51 @@ typedef struct DataRange
 
 }DataRange;
 
-static int distinctGraphsCount = 38;
+static int distinctGraphsCount = 41;
 
 static GraphHashCode hashCodeLookup[] = {
-       {0, 0x4229ABEE},
-       {100000, 0x829C70F3},
-       {100001, 0x36553465},
-       {100002, 0x868896D7},
-       {100003, 0x31CC0369},
-       {100005, 0x8E655D9},
-       {100006, 0x88DC62BB},
-       {100007, 0x76733AA9},
-       {100008, 0xF29CE7EB},
-       {100015, 0xC5F60B3D},
+       {0, 0x63F6EE7C},
+       {100000, 0x5BA41167},
+       {100001, 0xDCF7CB1D},
+       {100002, 0x6960CAD3},
+       {100003, 0x5AF09D55},
+       {100005, 0xD2AE2209},
+       {100006, 0xE12C0163},
+       {100007, 0xF7A810CD},
+       {100008, 0xAF9741F3},
+       {100015, 0x44FD93E9},
        {100016, 0xD089033F},
-       {100025, 0x829C70F3},
+       {100025, 0x5BA41167},
        {100026, 0xF9C17401},
-       {100027, 0xAAADB977},
-       {100028, 0x11B543D1},
-       {100029, 0x749E1683},
-       {100030, 0x91310CBD},
-       {100031, 0x6435159F},
-       {100032, 0x246C440B},
-       {100033, 0x675F6431},
-       {100034, 0x76EBC27D},
+       {100027, 0x7E6A893B},
+       {100028, 0xC93F4EFD},
+       {100029, 0x5ED714AF},
+       {100030, 0x62F93081},
+       {100031, 0x70EC66F},
+       {100032, 0x1EDFFADB},
+       {100033, 0xF43A4029},
+       {100034, 0x6E2D3845},
        {100035, 0x5B0632C3},
        {100036, 0x5B0632C3},
-       {100037, 0x90AC44AD},
-       {100038, 0x47CC7DF3},
-       {100039, 0xC992E8EB},
-       {100040, 0x113143AB},
-       {100041, 0xF421B02D},
-       {100042, 0x8397E143},
-       {100044, 0xA6CC44DD},
-       {100050, 0x1CF11267},
-       {100051, 0x8AADA153},
-       {100052, 0x6435159F},
-       {100053, 0x246C440B},
-       {100054, 0x675F6431},
-       {100055, 0x76EBC27D},
-       {100056, 0x113143AB},
-       {100057, 0xF421B02D},
-       {100058, 0x47721C41}
+       {100037, 0x4817B8B9},
+       {100038, 0x68CBF6F7},
+       {100039, 0xD9854883},
+       {100040, 0xC0D32357},
+       {100041, 0x1A6BE929},
+       {100042, 0x751F62DB},
+       {100044, 0xFD5394A5},
+       {100050, 0x5A8FC22F},
+       {100051, 0xF0852525},
+       {100052, 0x70EC66F},
+       {100053, 0x1EDFFADB},
+       {100054, 0xF43A4029},
+       {100055, 0x6E2D3845},
+       {100056, 0xC0D32357},
+       {100057, 0x1A6BE929},
+       {100058, 0x4C0137E5},
+       {100059, 0x30C0FCF},
+       {100060, 0x66AFA369},
+       {100061, 0xBEBA2CD3}
  };
 
 static FrameFormatDesc formatsDB[] = {

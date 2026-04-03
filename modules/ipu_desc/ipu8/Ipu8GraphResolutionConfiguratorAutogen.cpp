@@ -190,7 +190,7 @@ uint32_t GraphResolutionConfiguratorHelper::getRunKernelIoBufferSystemApiUuid()
 
 uint32_t GraphResolutionConfiguratorHelper::getRunKernelDownscalerSystemApiUuid()
 {
-    return 2102;
+    return 51813;
 }
 
 GraphResolutionConfiguratorKernelRole GraphResolutionConfiguratorHelper::getKernelRole(uint32_t kernelUuid)
@@ -249,37 +249,40 @@ uint32_t GraphResolutionConfiguratorHelper::getReferenceKernel(uint32_t kernelUu
     return 0;
 }
 
-FormatType GraphResolutionConfiguratorHelper::getFormatForDrainer(uint32_t kernelUuid)
+FormatType GraphResolutionConfiguratorHelper::getFormatForDrainer(uint32_t kernelUuid, uint8_t precision)
 {
     switch (kernelUuid)
     {
-        case 16460 :     return FormatType::YUV420_8_SP_P; // odr_ofs_mp_1_4
-        case 37951 :     return FormatType::YUV420_8_SP_P; // odr_ofs_dp_1_4
+        case 16460 :     return (precision == 8 ? FormatType::YUV420_8_SP_P : FormatType::YUV420_10_SP_MSB); // odr_ofs_mp_1_4
+        case 37951 :     return (precision == 8 ? FormatType::YUV420_8_SP_P : FormatType::YUV420_10_SP_MSB); // odr_ofs_dp_1_4
         case 63731 :     return FormatType::META_8; // odr_tnr_sp_bc_rs4n_1_4
-        case 5215 :     return FormatType::YUV420_8_SP_P; // odr_tnr_fp_yuvn_1_4  HERE WE ASSUME NV12 OUTPUT!
+        case 5215 :     return (precision == 8 ? FormatType::YUV420_8_SP_P : FormatType::YUV420_10_SP_P); // odr_tnr_fp_yuvn_1_4
         case 65437 :     return FormatType::YUV420_8_SP_P; // odr_tnr_scale_fp_yuv4n_1_4
     }
 
     return FormatType::YUV420_8_SP_P;
 }
 
-StaticGraphStatus GraphResolutionConfiguratorHelper::getSmurfRunKernelUuid(std::vector<std::pair<uint32_t, uint32_t>>& kernelUuids)
+StaticGraphStatus GraphResolutionConfiguratorHelper::getSmurfRunKernelUuid(std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& kernelUuids)
 {
     kernelUuids.clear();
 
-    std::pair <uint32_t, uint32_t> smurfPair;
+    std::tuple <uint32_t, uint32_t, uint32_t> smurfTuple;
 
-    smurfPair.first = 13101;  // Smurf smurf_tnr_bc_1_0
-    smurfPair.second = 1502;  // Connected To tnr7_bc_1_2
-    kernelUuids.push_back(smurfPair);
+    std::get<0>(smurfTuple) = 47873;  // Smurf Feeder ifd_segmap_tnr_bc_1_4
+    std::get<1>(smurfTuple) = 13101;  // Smurf smurf_tnr_bc_1_0
+    std::get<2>(smurfTuple) = 1502;  // Smurf Device tnr7_bc_1_2
+    kernelUuids.push_back(smurfTuple);
 
-    smurfPair.first = 42749;  // Smurf smurf_tnr_blend_1_0
-    smurfPair.second = 20119;  // Connected To tnr7_blend_1_1
-    kernelUuids.push_back(smurfPair);
+    std::get<0>(smurfTuple) = 14619;  // Smurf Feeder ifd_segmap_tnr_blend_1_4
+    std::get<1>(smurfTuple) = 42749;  // Smurf smurf_tnr_blend_1_0
+    std::get<2>(smurfTuple) = 20119;  // Smurf Device tnr7_blend_1_1
+    kernelUuids.push_back(smurfTuple);
 
-    smurfPair.first = 37468;  // Smurf smurf_cas_1_0
-    smurfPair.second = 9385;  // Connected To cas_1_1
-    kernelUuids.push_back(smurfPair);
+    std::get<0>(smurfTuple) = 20893;  // Smurf Feeder ifd_segmap_cas_1_4
+    std::get<1>(smurfTuple) = 37468;  // Smurf smurf_cas_1_0
+    std::get<2>(smurfTuple) = 9385;  // Smurf Device cas_1_1
+    kernelUuids.push_back(smurfTuple);
 
     return StaticGraphStatus::SG_OK;
 }

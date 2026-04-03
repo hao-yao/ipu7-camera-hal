@@ -118,6 +118,8 @@ void RequestThread::clearRequests() {
 
 int RequestThread::configure(const stream_config_t *streamList) {
     int previewIndex = -1, videoIndex = -1, stillIndex = -1;
+    bool block_request = false;
+
     for (int i = 0; i < streamList->num_streams; i++) {
         if (streamList->streams[i].usage == CAMERA_STREAM_PREVIEW) {
             previewIndex = i;
@@ -129,10 +131,14 @@ int RequestThread::configure(const stream_config_t *streamList) {
     }
 
     // Don't block request handling if no 3A stats (from video pipe)
-    mBlockRequest = PlatformData::isEnableAIQ(mCameraId) && ((previewIndex >= 0) ||
-                                                             (videoIndex >= 0));
+    block_request = PlatformData::isEnableAIQ(mCameraId) &&
+                    ((previewIndex >= 0) || (videoIndex >= 0));
     LOG1("%s: user specified Configmode: %d, blockRequest: %d", __func__,
-         static_cast<ConfigMode>(streamList->operation_mode), mBlockRequest);
+         static_cast<ConfigMode>(streamList->operation_mode), block_request);
+    {
+        AutoMutex l(mPendingReqLock);
+        mBlockRequest = block_request;
+    }
 
     mGet3AStatWithFakeRequest =
         mPerframeControlSupport ? PlatformData::isPsysContinueStats(mCameraId) : false;

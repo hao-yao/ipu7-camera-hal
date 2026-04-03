@@ -19,7 +19,7 @@
     "Sensor": [
       {
         "name": "isx031-4",
-        "description": "isx031 ds sensor.",
+        "description": "isx031 as sensor.",
         "vcCount": 4,
         "vcId": 3,
         "vcGroupId": 0,
