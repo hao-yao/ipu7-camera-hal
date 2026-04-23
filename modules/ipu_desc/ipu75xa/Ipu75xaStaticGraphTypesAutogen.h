@@ -66,6 +66,7 @@ enum class NodeResourceId : uint8_t {
     SwImv = 6,
     SwB2b = 7,
     SwRemosaic = 8,
+    SwAinr = 9,
 };
 
 enum class StaticGraphStatus : uint8_t
@@ -141,14 +142,16 @@ struct StaticGraphKernelRes {
 
 // ia_pal_system_api_io_buffer_1_4_t;
 // We add only the fields that are used by tests
-struct StaticGraphKernelSystemApiIoBuffer1_4 {
+struct StaticGraphKernelSystemApiIoBuffer {
     uint32_t x_output_offset_per_stripe[4];
     uint32_t plane_start_address_per_stripe[12];
+    uint8_t component_precision;
 };
 
 // ia_pal_system_api_b2i_ds_1_1_t;
-struct StaticGraphKernelSystemApiB2iDs1_1 {
+struct StaticGraphKernelSystemApiB2iDs {
     uint8_t is_striping;
+    int32_t scaling_ratio;
 };
 
 #endif
@@ -342,6 +345,7 @@ enum class GraphElementType : uint8_t {
     SwB2b,
     SwImv,
     SwRemosaic,
+    SwAinr,
     LbffDol2InputsBayerStat,
     LbffDol3InputsBayerStat,
     LbffDol2InputsWithGmvBayerStat,

@@ -65,12 +65,32 @@ typedef enum
 
 }DataRangePins;
 
+typedef struct GSFTimeStamp {
+
+    uint16_t year;
+    uint16_t month;
+    uint16_t day;
+    uint16_t hour;
+    uint16_t minute;
+    uint16_t second;
+} GSFTimeStamp;
+
+typedef struct SysToolVersion {
+
+    uint16_t year;
+    uint16_t workWeek;
+    uint16_t day;
+    uint16_t patchVersion;
+} SysToolVersion;
+
 typedef struct {
 
     uint32_t sapAttributes;
     uint32_t binaryCommonHashCode;
     uint32_t numberOfResolutions;
     uint32_t numberOfSensorModes;
+    GSFTimeStamp gsfTimeStamp;
+    SysToolVersion sysToolVersion;
 
 }BinaryHeader;
 
@@ -99,13 +119,13 @@ typedef struct DataRange
 static int distinctGraphsCount = 31;
 
 static GraphHashCode hashCodeLookup[] = {
-       {0, 0xB38204DB},
+       {0, 0x8C011399},
        {100000, 0xF9CD2BC5},
-       {100001, 0xFB0AC21B},
-       {100002, 0x8C9CA2B5},
+       {100001, 0xEE74334F},
+       {100002, 0xDB8579F1},
        {100003, 0x2852BB37},
-       {100004, 0x9739AECD},
-       {100005, 0x5537},
+       {100004, 0x33995079},
+       {100005, 0x73C35A23},
        {100006, 0xA9B58C63},
        {100007, 0xC041EA69},
        {100008, 0x203F07B3},
@@ -118,19 +138,19 @@ static GraphHashCode hashCodeLookup[] = {
        {100028, 0xFEE9967},
        {100029, 0xDA687535},
        {100030, 0x5E3042B3},
-       {100031, 0xB92BDD49},
-       {100032, 0x78524335},
+       {100031, 0x2E3842FD},
+       {100032, 0x99EC4311},
        {100035, 0x28230C83},
        {100036, 0x28230C83},
        {100037, 0xCE22B6FB},
        {100038, 0xE7B8AD65},
        {100039, 0x7B1EE4DB},
-       {100040, 0xC052F97D},
-       {100041, 0xF606DE19},
-       {100042, 0x6C88AC89},
-       {100044, 0x9739AECD},
-       {100045, 0xB431D6FF},
-       {100046, 0x9739AECD}
+       {100040, 0x4E4BEEE9},
+       {100041, 0x8D4E4C09},
+       {100042, 0xC0208659},
+       {100044, 0x33995079},
+       {100045, 0x19D0E13B},
+       {100046, 0x33995079}
  };
 
 static FrameFormatDesc formatsDB[] = {

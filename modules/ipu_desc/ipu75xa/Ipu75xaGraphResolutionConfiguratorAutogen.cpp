@@ -67,6 +67,8 @@ uint32_t GraphResolutionConfiguratorHelper::getRunKernelUuidOfOutput(HwSink hwSi
                 case 100033:    // Dol3Inputs_NoDvs_NoTnr
                 case 100034:    // Dol3Inputs_NoDvs_WithTnr
                 case 100042:    // Bayer_WithPdaf3_WithNntm_WithTnr
+                case 100059:    // Bayer_NoPdaf_NoDvs_WithTnr_WithB2b_WithNntm
+                case 100061:    // Bayer_NoPdaf_NoDvs_WithTnr_WithAinr_WithNntm
                 case 100052:    // Dol2Inputs_NoDvs_NoTnr
                 case 100053:    // Dol2Inputs_NoDvs_WithTnr
                 case 100054:    // Dol3Inputs_NoDvs_NoTnr
@@ -121,6 +123,6 @@ uint32_t GraphResolutionConfiguratorHelper::getRunKernelIoBufferSystemApiUuid()
 
 uint32_t GraphResolutionConfiguratorHelper::getRunKernelDownscalerSystemApiUuid()
 {
-    return 2102;
+    return 51813;
 }
 

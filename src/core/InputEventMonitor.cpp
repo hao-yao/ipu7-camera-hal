@@ -83,7 +83,8 @@ int InputEventMonitor::configure(int eventType, int eventCode) {
                     mFd = status;
                     mEventType = eventType;
                     mEventCode = eventCode;
-                    for (uint32_t i = 0; i < sizeof(EVENTIOCTLMODES); ++i) {
+                    const uint32_t modes_count = sizeof(EVENTIOCTLMODES) / sizeof(struct EventIoctlMode);
+                    for (uint32_t i = 0; i < modes_count; ++i) {
                         if (mEventType == EVENTIOCTLMODES[i].type) {
                             mEventIoctlModesIndex = i;
                             break;

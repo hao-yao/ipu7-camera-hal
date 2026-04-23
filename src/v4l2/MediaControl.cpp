@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 The Android Open Source Project
- * Copyright (C) 2015-2022 Intel Corporation
+ * Copyright (C) 2015-2026 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -128,10 +128,6 @@ void MediaControl::releaseInstance() {
 
 MediaControl::MediaControl(const char* devName) : mDevName(devName) {
     LOG1("@%s device: %s", __func__, devName);
-// VIRTUAL_CHANNEL_S
-
-    mIsMediaCtlSetup = false;
-// VIRTUAL_CHANNEL_E
 
     int ret = initEntities();
     CheckAndLogError(ret, VOID_VALUE, "Failed to init entities");
@@ -912,6 +908,15 @@ int MediaControl::setVideoNodesFormat(MediaCtlConf* mc, int field) {
     return ret;
 }
 
+const std::string MediaControl::getVideoIsysReceiverName(const MediaCtlConf* mc) {
+    for (const auto& videoNode : mc->videoNodes) {
+        if (videoNode.videoNodeType == VIDEO_ISYS_RECEIVER) {
+            return videoNode.name;
+        }
+    }
+    return std::string();
+}
+
 // VIRTUAL_CHANNEL_E
 int MediaControl::mediaCtlSetup(int cameraId, MediaCtlConf* mc, int width, int height, int field) {
     LOG1("<id%d> %s", cameraId, __func__);
@@ -922,11 +927,11 @@ int MediaControl::mediaCtlSetup(int cameraId, MediaCtlConf* mc, int width, int h
     AutoMutex lock(sLock);
 
     if (!mc->routings.empty()) {
-        if (mIsMediaCtlSetup) {
+        if (mIsysReceiverNamesConfigured.find(getVideoIsysReceiverName(mc)) !=
+            mIsysReceiverNamesConfigured.end())
             return OK;
-        } else {
-            mIsMediaCtlSetup = true;
-        }
+        else
+            mIsysReceiverNamesConfigured.insert(getVideoIsysReceiverName(mc));
     }
 
 // VIRTUAL_CHANNEL_E

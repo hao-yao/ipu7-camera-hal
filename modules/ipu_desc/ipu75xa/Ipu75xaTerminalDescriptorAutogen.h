@@ -172,6 +172,12 @@ enum SW_REMOSAICTerminalID
     SW_REMOSAIC_TERMINAL_CONNECT_OUTPUT,
 };
 
+enum SW_AINRTerminalID
+{
+    SW_AINR_TERMINAL_CONNECT_INPUT,
+    SW_AINR_TERMINAL_CONNECT_OUTPUT,
+};
+
 extern TerminalDescriptor SW_ISYSTerminalDesc[];
 extern TerminalDescriptor LBFFTerminalDesc[];
 extern TerminalDescriptor BBPSTerminalDesc[];
@@ -181,6 +187,7 @@ extern TerminalDescriptor SW_NNTMTerminalDesc[];
 extern TerminalDescriptor SW_IMVTerminalDesc[];
 extern TerminalDescriptor SW_B2BTerminalDesc[];
 extern TerminalDescriptor SW_REMOSAICTerminalDesc[];
+extern TerminalDescriptor SW_AINRTerminalDesc[];
 
 extern int CountOfSW_ISYSTerminalDesc;
 extern int CountOfLBFFTerminalDesc;
@@ -191,3 +198,4 @@ extern int CountOfSW_NNTMTerminalDesc;
 extern int CountOfSW_IMVTerminalDesc;
 extern int CountOfSW_B2BTerminalDesc;
 extern int CountOfSW_REMOSAICTerminalDesc;
+extern int CountOfSW_AINRTerminalDesc;

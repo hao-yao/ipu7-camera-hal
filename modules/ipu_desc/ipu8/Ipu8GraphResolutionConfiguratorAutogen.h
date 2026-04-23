@@ -41,6 +41,6 @@ public:
     static uint32_t getRunKernelDownscalerSystemApiUuid();
     static GraphResolutionConfiguratorKernelRole getKernelRole(uint32_t kernelUuid);
     static uint32_t getReferenceKernel(uint32_t kernelUuid);
-    static FormatType getFormatForDrainer(uint32_t kernelUuid);
-    static StaticGraphStatus getSmurfRunKernelUuid(std::vector<std::pair<uint32_t, uint32_t>>& kernelUuids);
+    static FormatType getFormatForDrainer(uint32_t kernelUuid, uint8_t precision);
+    static StaticGraphStatus getSmurfRunKernelUuid(std::vector<std::tuple<uint32_t, uint32_t, uint32_t>>& kernelUuids);
 };

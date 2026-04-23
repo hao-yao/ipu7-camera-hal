@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2025 Intel Corporation
+// Copyright (C) 2025-2026 Intel Corporation
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@
     "Sensor": [
       {
         "name": "isx031-8",
-        "description": "isx031 ds sensor.",
+        "description": "isx031 as sensor.",
         "vcCount": 4,
         "vcId": 3,
         "vcGroupId": 0,
@@ -29,7 +29,7 @@
             "configMode": "AUTO",
             "output": [1920, 1536],
             "format": "V4L2_PIX_FMT_UYVY",
-            "sensorCommonConfig": "isx031-1",
+            "sensorCommonConfig": "isx031-5",
             "videonode": [
               {
                 "name": "Intel IPU7 ISYS Capture 19", "videoNodeType": "VIDEO_GENERIC"
@@ -47,7 +47,7 @@
             "configMode": "AUTO",
             "output": [1920, 1080],
             "format": "V4L2_PIX_FMT_UYVY",
-            "sensorCommonConfig": "isx031-1",
+            "sensorCommonConfig": "isx031-5",
             "videonode": [
               {
                 "name": "Intel IPU7 ISYS Capture 19", "videoNodeType": "VIDEO_GENERIC"
@@ -65,7 +65,7 @@
             "configMode": "AUTO",
             "output": [1280, 720],
             "format": "V4L2_PIX_FMT_UYVY",
-            "sensorCommonConfig": "isx031-1",
+            "sensorCommonConfig": "isx031-5",
             "videonode": [
               {
                 "name": "Intel IPU7 ISYS Capture 19", "videoNodeType": "VIDEO_GENERIC"

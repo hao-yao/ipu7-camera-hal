@@ -49,6 +49,11 @@ status_t PostProcessorCore::createProcessor() {
             case POST_PROCESS_CONVERT:
                 processor = std::make_shared<ConvertProcess>();
                 break;
+// JPEG_ENCODE_S
+            case POST_PROCESS_JPEG_ENCODING:
+                processor = std::make_shared<JpegProcess>(mCameraId);
+                break;
+// JPEG_ENCODE_E
             case POST_PROCESS_NONE:
                 break;
             default:

@@ -487,6 +487,15 @@ TerminalDescriptor SW_SEGNETTerminalDesc[] =
         TERMINAL_DIR_OUT,
         0, // sw_segnet
     },
+    {
+        SW_SEGNET_TERMINAL_CONNECT_CV_DATA_OUTPUT2,
+        TERMINAL_TYPE_CONNECT,
+        "TERMINAL_CONNECT_CV_DATA_OUTPUT2",
+        PAC_BUFFER_TYPE_SPATIAL_OUT,
+        TERMINAL_BUFFER_TYPE_METADATA,
+        TERMINAL_DIR_OUT,
+        0, // sw_segnet
+    },
 };
 
 TerminalDescriptor SW_GDCTerminalDesc[] =

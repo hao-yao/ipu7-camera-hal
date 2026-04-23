@@ -755,7 +755,8 @@ status_t ProcessingUnit::prepareTask(CameraBufferPortMap* srcBuffers,
             sendPsysRequestEvent(dstBuffers, settingSequence, timestamp,
                                  EVENT_REQUEST_METADATA_READY);
         }
-    } else if ((!holdOnInput) && (!isBufferHoldForRawReprocess(inputSequence))) {
+    } else if ((!holdOnInput) && (!isBufferHoldForRawReprocess(inputSequence))
+               && mBufferProducer != nullptr) {
         for (const auto& src : *srcBuffers) {
             mBufferProducer->qbuf(src.first, src.second);
         }

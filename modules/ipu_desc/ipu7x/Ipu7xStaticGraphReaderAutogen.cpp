@@ -80,7 +80,27 @@ StaticGraphStatus StaticGraphReader::Init(StaticReaderBinaryData& binaryGraphSet
     return StaticGraphStatus::SG_OK;
 }
 
-std::pair<int, const GraphConfigurationHeader*> StaticGraphReader::GetGraphConfigurationHeaders() const 
+GSFTimeStamp StaticGraphReader::GetBinaryTimeStamp() const
+{
+    return _binaryHeader.gsfTimeStamp;
+}
+
+SysToolVersion StaticGraphReader::GetSysToolVersion() const
+{
+    return _binaryHeader.sysToolVersion;
+}
+
+uint32_t StaticGraphReader::GetSAPAttribute() const
+{
+    return 0;
+}
+
+uint32_t StaticGraphReader::GetAdditionalFeaturesBit(const GraphConfigurationHeader* header) const
+{
+    return header ? header->additonalFeaturesBit : 0;
+}
+
+std::pair<int, const GraphConfigurationHeader*> StaticGraphReader::GetGraphConfigurationHeaders() const
 {
     return std::make_pair(_binaryHeader.numberOfResolutions, _graphConfigurationHeaders);
 }
@@ -91,7 +111,7 @@ GraphConfigurationKey* StaticGraphReader::GetFdGraphConfigurationKey(GraphConfig
     {
         if (settingsKey.attributes == _graphConfigurationHeaders[i].settingsKey.attributes && 
             (((settingsKey.preview.width != 0 && _graphConfigurationHeaders[i].settingsKey.preview.width == settingsKey.preview.width && _graphConfigurationHeaders[i].settingsKey.preview.height == settingsKey.preview.height) ||
-            (settingsKey.video.width != 0 && _graphConfigurationHeaders[i].settingsKey.video.width == settingsKey.video.width && _graphConfigurationHeaders[i].settingsKey.video.height == settingsKey.video.height)) && 
+            (settingsKey.video.width != 0 && _graphConfigurationHeaders[i].settingsKey.video.width == settingsKey.video.width && _graphConfigurationHeaders[i].settingsKey.video.height == settingsKey.video.height)) &&
             _graphConfigurationHeaders[i].settingsKey.postProcessingVideo.width != 0))
         {
             return &_graphConfigurationHeaders[i].settingsKey;
