@@ -716,11 +716,9 @@ void GraphConfig::saveLink(int32_t streamId, const GraphLink* link,
     if (!link->isActive) {
         return;
     }
-    if (!link->srcNode || !link->destNode) {
-        return;
-    }
     // Ignore link: src="-1:Sensor:0" dest="2:Isys:0" type="Source2Node"
-    if ((link->type == LinkType::Source2Node) && (link->destNode->type == NodeTypes::Isys)) {
+    if ((link->type == LinkType::Source2Node) &&
+        (link->destNode != nullptr && link->destNode->type == NodeTypes::Isys)) {
         return;
     }
 
@@ -730,7 +728,8 @@ void GraphConfig::saveLink(int32_t streamId, const GraphLink* link,
         // src="-1:LscBuffer:0" dest="0:LbffBayer:4" type="Source2Node"
         ipuLink.isEdge = true;
         hasNecessaryNode = link->destNode;
-    } else if ((link->type == LinkType::Node2Node) && (link->srcNode->type == NodeTypes::Isys)) {
+    } else if ((link->type == LinkType::Node2Node) &&
+               (link->srcNode != nullptr && link->srcNode->type == NodeTypes::Isys)) {
         // src="2:Isys:1" dest="0:LbffBayer:3" type="Node2Node"
         ipuLink.isEdge = true;
         hasNecessaryNode = link->destNode;

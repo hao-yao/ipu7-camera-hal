@@ -375,10 +375,10 @@ status_t PipeLine::createPSysGraph(int32_t numLinks, GraphLink** links) {
         if (link->type != LinkType::Node2Node && link->type != LinkType::Node2Self) {
             continue;
         }
-        if (!link->srcNode || !link->destNode) {
+        if (link->srcNode != nullptr && link->srcNode->type == NodeTypes::Isys) {
             continue;
         }
-        if (link->srcNode->type == NodeTypes::Isys) {
+        if (link->srcNode == nullptr || link->destNode == nullptr) {
             continue;
         }
 
