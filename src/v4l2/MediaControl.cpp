@@ -1134,21 +1134,33 @@ int MediaControl::getI2CBusAddress(const string& sensorEntityName, const string&
          sinkEntityName.c_str());
     CheckAndLogError(!i2cBus, UNKNOWN_ERROR, "i2cBus is nullptr");
 
+    MediaEntity* sinkEntity = getEntityByName(sinkEntityName);
+    if (!sinkEntity) {
+        return UNKNOWN_ERROR;
+    }
+
+    MediaEntity* sensorEntity = getEntityByName(sensorEntityName);
+    if (sensorEntity && isMediaSourceEntity(sensorEntity) &&
+        checkHasSource(sinkEntity, sensorEntityName)) {
+        const char* separator = strchr(sensorEntity->info.name, ' ');
+        if (separator != nullptr) {
+            *i2cBus = separator + 1;
+            LOG1("i2cBus is %s", i2cBus->c_str());
+            return OK;
+        }
+    }
+
+    const string sensorEntityPrefix = sensorEntityName + " ";
     for (auto& entity : mEntities) {
-        int linksCount = entity.info.links;
-        MediaLink* links = entity.links;
-        char* entityName = nullptr;
-        size_t sensorEntityNameLen = sensorEntityName.length();
-        for (int i = 0; i < linksCount; i++) {
-            if (strcmp(links[i].sink->entity->info.name, sinkEntityName.c_str()) == 0) {
-                entityName = entity.info.name;
-                break;
-            }
+        if (!isMediaSourceEntity(&entity) || strncmp(entity.info.name, sensorEntityPrefix.c_str(),
+                                                     sensorEntityPrefix.length()) != 0) {
+            continue;
         }
 
-        // entityName example: "imx319 10-0010", sensorEntityName example: "imx319"
-        if (entityName && (strlen(entityName) > (sensorEntityNameLen + 1U))) {
-            *i2cBus = entityName + sensorEntityNameLen + 1;
+        // VIDEO_PIXEL_ARRAY is the sensor entity. Find it through
+        // the topology instead of taking the first entity linked to CSI.
+        if (checkHasSource(sinkEntity, sensorEntityPrefix)) {
+            *i2cBus = entity.info.name + sensorEntityPrefix.length();
             LOG1("i2cBus is %s", i2cBus->c_str());
             return OK;
         }

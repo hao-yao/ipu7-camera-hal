@@ -875,7 +875,9 @@ void CameraSensorsParser::parseSensorSection(const Json::Value& node) {
         mCurCam->mVCGroupId = node["vcGoupId"].asInt();
     }
     // VIRTUAL_CHANNEL_E
-    resolveCsiPortAndI2CBus();
+    if (node.isMember("MediaCtlConfig")) {
+        resolveCsiPortAndI2CBus(node["MediaCtlConfig"]);
+    }
     if (node.isMember("supportedTuningConfig")) {
         parseSupportedTuningConfig(node["supportedTuningConfig"]);
     }
@@ -1025,7 +1027,7 @@ void CameraSensorsParser::parseSensorSection(const Json::Value& node) {
 #endif
 }
 
-void CameraSensorsParser::resolveCsiPortAndI2CBus() {
+void CameraSensorsParser::resolveCsiPortAndI2CBus(const Json::Value& mediaCtlConfigs) {
     std::string fullSensorName = mCurCam->sensorName;
     if (fullSensorName.empty()) {
         LOGW("%s: Cannot find any sensors in this box.", __func__);
@@ -1037,9 +1039,37 @@ void CameraSensorsParser::resolveCsiPortAndI2CBus() {
         mSensorInfo.sensorResolved = true;
         mCsiPort = sinkEntityName.substr(sinkEntityName.find_last_of(' ') + 1);
 
-        auto sensorName = fullSensorName;
-        if (sensorName.find_first_of('-') != std::string::npos)
-            sensorName = fullSensorName.substr(0, (sensorName.find_first_of('-')));
+        std::string sensorName;
+        for (const auto& mediaCtlConfig : mediaCtlConfigs) {
+            if (!mediaCtlConfig.isMember("videonode")) continue;
+
+            for (const auto& videoNode : mediaCtlConfig["videonode"]) {
+                if (!videoNode.isMember("videoNodeType") ||
+                    videoNode["videoNodeType"].asString() != "VIDEO_PIXEL_ARRAY") {
+                    continue;
+                }
+
+                if (videoNode.isMember("acpiName") && mMediaCtl != nullptr) {
+                    sensorName = mMediaCtl->acpiName2EntityName(
+                        videoNode["acpiName"].asString());
+                } else if (videoNode.isMember("name")) {
+                    sensorName = videoNode["name"].asString();
+                    if (sensorName.find("$I2CBUS") != std::string::npos)
+                        sensorName.clear();
+                }
+
+                if (!sensorName.empty()) {
+                    break;
+                }
+            }
+            if (!sensorName.empty()) break;
+        }
+
+        if (sensorName.empty()) {
+            sensorName = fullSensorName;
+            if (sensorName.find_first_of('-') != std::string::npos)
+                sensorName = fullSensorName.substr(0, sensorName.find_first_of('-'));
+        }
 
         if (mMediaCtl != nullptr) {
             mMediaCtl->getI2CBusAddress(sensorName, sinkEntityName, &mI2CBus);
